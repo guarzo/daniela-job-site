@@ -3,6 +3,9 @@
 node_modules/
 *.log
 
+# Wrangler local scratch: build temp, local dev state, cached account id
+.wrangler/
+
 # Nothing secret should ever exist in this repo, but belt-and-braces:
 # this site is SERVED PUBLICLY by Cloudflare Pages even though the repo is private.
 .env
