@@ -250,6 +250,17 @@ sign-in feedback get transitions, and nothing gets an entrance. Ease out with
 exponential curves, never bounce or elastic. Never animate layout properties. All
 motion respects `prefers-reduced-motion`.
 
+The note form is where both halves of that were tested. It used to open by
+transitioning `grid-template-rows` from `0fr` to `1fr` together with its `margin-top`,
+which is 200ms of reflow of everything below it, on a page that can hold a dozen of
+them. The obvious repair is to animate `opacity` and `transform` on the form instead
+and let the height change land in one frame. That was considered and rejected: the
+second sentence of this section rules the repair out as firmly as the third rules out
+the original, because a form fading and sliding into place is an entrance. It opens and
+closes instantly now, and the height change happens once instead of on a timer. What
+still moves is the triangle beside the disclosure label, which rotates in place, and
+rotating a marker that is already on screen is a state change rather than an arrival.
+
 ### Named Rules
 
 **The No Shadow Rule.** `box-shadow` is prohibited as elevation in this system,
@@ -334,6 +345,33 @@ Records hold a uniform height whether or not they carry a signal, because the fe
 box lays its chips and its actions out in one row rather than stacking them. A record
 whose height changes when she acts on it is a record that moves the next one out from
 under the cursor.
+
+### The note disclosure
+
+Both bands reveal the upstream note with the same control, built by one function, so
+the word and the marker cannot drift apart between them: the label `Note`, and a small
+solid triangle that points right when closed and turns down when open.
+
+The label is deliberately not renamed. In the queue's foot the disclosure sits in the
+meta group on the left and `Add note` sits in the action group on the right, on the same
+line, sharing a word: one reads, one writes. That was raised as a collision, but the
+collision was in the marker rather than the vocabulary. The foot's whole organising idea
+is that the left is what there is to read and the right is what to do about it, the two
+groups are pushed to opposite edges, and both halves are entitled to the word "note"
+because a note is what each of them is about. The verb is what separates them, and
+`Add note` already carries it.
+
+What could not stand was `+`. It is the universal write affordance, it was sitting on
+the read control, and it was pointing at the real write control from the far side of the
+same line: "Note +" is a sentence that promises to add a note. A triangle says disclosure
+and nothing else. It is drawn with borders rather than set as a ▸ glyph, so the mark does
+not depend on the mono face's coverage of Geometric Shapes, and because a flat solid
+triangle is already this system's idiom. It inherits `currentColor`, so it follows the
+label through hover and through both themes without a second value.
+
+In the ledger the same control sits in the Role cell while `Add note` sits in Feedback,
+so the two were never adjacent there and the shared word never read as a pair. The marker
+was just as wrong, and it is one component, so it was one fix.
 
 ### The Chigüire
 

@@ -857,15 +857,30 @@ td.num {
   color: var(--fg);
   text-decoration-color: currentColor;
 }
+/* A triangle, not a plus. The marker carries the open/closed state, so it must not be
+   the first thing that disappears when the label is read at a glance — but "Note +"
+   sat on the same line as "Add note", and + is the universal write affordance, so the
+   control that reads was wearing the glyph of the control that writes. The words stay:
+   the foot already separates what there is to read from what to do about it, and both
+   groups are entitled to the word. The marker is what was lying. Drawn with borders
+   rather than set as a ▸ glyph, so the mark depends on no font's coverage of Geometric
+   Shapes, and because a flat solid triangle is already the house style. */
 .disc::after {
-  content: '+';
-  font-family: var(--mono);
-  /* The glyph carries the open/closed state, so it must not be the first thing
-     that disappears when the label is read at a glance. */
+  content: '';
+  align-self: center;
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  /* Rotating a marker in place is a state change on something already on screen, which
+     this system allows, and transform composites. Contrast .noteform below, where what
+     was being animated was the arrival of the form itself. */
+  transition: transform 120ms var(--ease);
   text-decoration: none;
 }
 .disc[aria-expanded='true']::after {
-  content: '\2212'; /* minus */
+  transform: rotate(90deg);
 }
 
 .noterow > td {
@@ -946,10 +961,15 @@ td.num {
   white-space: nowrap;
 }
 
+/* Opens and closes instantly. It used to transition grid-template-rows and margin-top,
+   which are both layout properties: every frame of that 200ms reflowed the band below
+   the form, and section 4 forbids animating layout. The composited alternative — fading
+   and sliding the form in on opacity and transform — was rejected rather than
+   substituted, because section 4 also says nothing gets an entrance, and a form arriving
+   is exactly that. The height change stays; it just happens once instead of on a timer. */
 .noteform {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 200ms var(--ease), margin-top 200ms var(--ease);
 }
 /* The margin is part of the collapse. Left on permanently it would pad every row in
    the table by 12px for a form that is almost never open. */
@@ -962,15 +982,11 @@ td.num {
   min-width: 0;
   /* A 0fr grid track clips the form but leaves the textarea and its buttons in the
      tab order and the accessibility tree. With twelve rows on screen that is three
-     dozen stops through controls nobody can see. visibility takes them out, and
-     unlike display it still animates. */
+     dozen stops through controls nobody can see. visibility takes them out. */
   visibility: hidden;
-  transition: visibility 0s linear 200ms;
 }
 .noteform[data-open='true'] > div {
   visibility: visible;
-  /* Visible immediately on open, delayed to the end of the collapse on close. */
-  transition-delay: 0s;
 }
 .noteform textarea {
   min-height: 4.5rem;
