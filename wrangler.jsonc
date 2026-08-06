@@ -1,0 +1,17 @@
+{
+  // Assets-only Worker: no `main`, no server-side code. Every request is served
+  // from ./public as a static file.
+  //
+  // The whole point of this file is that the deploy path lives in version control
+  // rather than in a dashboard field. Leave every path setting in the Cloudflare UI
+  // at its default; wrangler reads the directory from here.
+  //
+  // ./public is a subdirectory on purpose. wrangler uploads everything under the
+  // assets directory, so pointing it at the repo root would publish this config and
+  // the README too. Anything outside ./public is structurally unpublishable.
+  "name": "daniela-job-site",
+  "compatibility_date": "2026-08-06",
+  "assets": {
+    "directory": "./public"
+  }
+}
