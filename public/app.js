@@ -46,7 +46,9 @@
 
   var el = function (id) { return document.getElementById(id); };
   var rows = [];
+  var signalsByApp = {};
   var filter = { q: '', status: 'all' };
+  var NOTE_MAX = 2000; // mirrors the char_length check on public.viewer_signals
 
   function show(view) {
     ['view-auth', 'view-loading', 'view-app'].forEach(function (v) {
@@ -95,35 +97,57 @@
 
   /* ---------- data ---------- */
 
+  function indexSignals(list) {
+    signalsByApp = {};
+    list.forEach(function (s) {
+      (signalsByApp[s.application_id] = signalsByApp[s.application_id] || []).push(s);
+    });
+  }
+
   function load(session) {
     el('who').textContent = session.user.email || '';
     show('view-loading');
-    sb.from('applications')
-      .select('id,company,role,sector,role_type,status,status_date,fit_rating,notes,cv_object,cover_letter_object,updated_at')
-      .order('fit_rating', { ascending: false, nullsFirst: false })
-      .then(function (res) {
-        show('view-app');
-        if (res.error) {
-          say(el('app-msg'), 'Could not load applications: ' + res.error.message, 'err');
-          return;
-        }
-        rows = res.data || [];
-        if (rows.length === 0) {
-          // Deliberately impersonal: this string ships in a publicly served file, so
-          // it must not name anyone. It is also the response an off-allowlist visitor
-          // sees — RLS returns zero rows rather than an error, and that is correct.
-          say(
-            el('app-msg'),
-            'No applications are visible for this account. If you expected to see some, ask the account owner to add this email address.',
-            'err'
-          );
-        } else {
-          say(el('app-msg'), '');
-        }
-        renderStats();
-        renderFilters();
-        renderTable();
-      });
+    Promise.all([
+      sb
+        .from('applications')
+        .select('id,company,role,sector,role_type,status,status_date,fit_rating,notes,cv_object,cover_letter_object,updated_at')
+        .order('fit_rating', { ascending: false, nullsFirst: false }),
+      sb
+        .from('viewer_signals')
+        .select('id,application_id,kind,note,created_at,processed_at')
+        .order('created_at', { ascending: true }),
+    ]).then(function (both) {
+      var appsRes = both[0];
+      var sigRes = both[1];
+      show('view-app');
+      if (appsRes.error) {
+        say(el('app-msg'), 'Could not load applications: ' + appsRes.error.message, 'err');
+        return;
+      }
+      rows = appsRes.data || [];
+
+      // A failure to read feedback must not blank the dashboard — the documents are
+      // the point, and they work without it. Degrade to an empty index and say so.
+      indexSignals(sigRes.error ? [] : sigRes.data || []);
+
+      if (rows.length === 0) {
+        // Deliberately impersonal: this string ships in a publicly served file, so
+        // it must not name anyone. It is also the response an off-allowlist visitor
+        // sees — RLS returns zero rows rather than an error, and that is correct.
+        say(
+          el('app-msg'),
+          'No applications are visible for this account. If you expected to see some, ask the account owner to add this email address.',
+          'err'
+        );
+      } else if (sigRes.error) {
+        say(el('app-msg'), 'Applications loaded, but feedback could not be read: ' + sigRes.error.message, 'err');
+      } else {
+        say(el('app-msg'), '');
+      }
+      renderStats();
+      renderFilters();
+      renderTable();
+    });
   }
 
   function renderStats() {
@@ -241,6 +265,141 @@
     return b;
   }
 
+  /* ---------- feedback ---------- */
+
+  function sigChip(s) {
+    var c = document.createElement('span');
+    c.className = 'sig' + (s.kind === 'hold' ? ' hold' : '');
+    var base = s.kind === 'sent' ? 'Sent' : s.kind === 'hold' ? "Don't send" : 'Note';
+    var when = (s.created_at || '').slice(0, 10);
+    c.textContent = base + (when ? ' · ' + when : '') + (s.processed_at ? '' : ' · awaiting sync');
+    // title is an attribute, not parsed as markup — safe for round-tripped note text.
+    if (s.note) c.title = s.note;
+    return c;
+  }
+
+  function recordSignal(appId, kind, note, chips, btn) {
+    var was = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    return sb
+      .from('viewer_signals')
+      .insert({ application_id: appId, kind: kind, note: note || null })
+      .select('id,application_id,kind,note,created_at,processed_at')
+      .then(function (res) {
+        btn.disabled = false;
+        btn.textContent = was;
+        if (res.error) {
+          say(el('app-msg'), 'Could not record that: ' + res.error.message, 'err');
+          return false;
+        }
+        var row = (res.data || [])[0];
+        if (row) {
+          (signalsByApp[appId] = signalsByApp[appId] || []).push(row);
+          chips.appendChild(sigChip(row));
+        }
+        say(el('app-msg'), 'Recorded. It reaches the tracker the next time signals are picked up.', 'ok');
+        return true;
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = was;
+        say(el('app-msg'), String(err && err.message ? err.message : err), 'err');
+        return false;
+      });
+  }
+
+  // One form per row, reused by both text kinds. Toggled directly rather than by
+  // re-rendering the table, so half-typed text survives a click elsewhere.
+  function noteForm(appId, chips) {
+    var root = document.createElement('div');
+    root.className = 'noteform';
+    root.hidden = true;
+
+    var ta = document.createElement('textarea');
+    ta.maxLength = NOTE_MAX;
+
+    var row = document.createElement('div');
+    row.className = 'row';
+    var save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'doc';
+    save.textContent = 'Save';
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.className = 'doc';
+    cancel.textContent = 'Cancel';
+    var count = document.createElement('span');
+    count.className = 'count';
+
+    var form = { root: root, kind: 'note' };
+    function setCount() { count.textContent = ta.value.length + ' / ' + NOTE_MAX; }
+    function close() { root.hidden = true; ta.value = ''; setCount(); }
+
+    ta.addEventListener('input', setCount);
+    cancel.addEventListener('click', close);
+    save.addEventListener('click', function () {
+      var text = ta.value.trim();
+      // The DB enforces this too (note_required_for_text_kinds); checking here saves a
+      // round trip and phrases the failure as instruction rather than a constraint name.
+      if (!text) {
+        say(el('app-msg'), 'Add some text before saving, or press Cancel.', 'err');
+        return;
+      }
+      recordSignal(appId, form.kind, text, chips, save).then(function (ok) {
+        if (ok) close();
+      });
+    });
+
+    form.open = function (kind) {
+      form.kind = kind;
+      ta.placeholder = kind === 'hold'
+        ? "Why this one shouldn't go out"
+        : 'What you want us to know about this one';
+      root.hidden = false;
+      setCount();
+      ta.focus();
+    };
+
+    row.appendChild(save);
+    row.appendChild(cancel);
+    row.appendChild(count);
+    root.appendChild(ta);
+    root.appendChild(row);
+    return form;
+  }
+
+  function feedbackCell(r) {
+    var td = document.createElement('td');
+
+    var chips = document.createElement('div');
+    (signalsByApp[r.id] || []).forEach(function (s) { chips.appendChild(sigChip(s)); });
+    td.appendChild(chips);
+
+    var form = noteForm(r.id, chips);
+
+    var bar = document.createElement('div');
+    var sent = document.createElement('button');
+    sent.type = 'button';
+    sent.className = 'doc';
+    sent.textContent = 'Mark sent';
+    sent.addEventListener('click', function () { recordSignal(r.id, 'sent', null, chips, sent); });
+    bar.appendChild(sent);
+
+    [['note', 'Note…'], ['hold', "Don't send"]].forEach(function (pair) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'doc';
+      b.textContent = pair[1];
+      b.addEventListener('click', function () { form.open(pair[0]); });
+      bar.appendChild(b);
+    });
+
+    td.appendChild(bar);
+    td.appendChild(form.root);
+    return td;
+  }
+
   function renderTable() {
     var body = el('apps-body');
     body.textContent = '';
@@ -280,6 +439,10 @@
         tdDoc.appendChild(docButton('Cover letter', r.cover_letter_object, stem + ' - Cover Letter.pdf'));
       if (!r.cv_object && !r.cover_letter_object) tdDoc.appendChild(docButton('—', null));
       tr.appendChild(tdDoc);
+
+      // Status badge above is never mutated by a pending signal — the repo decides
+      // status, and the UI must not imply the dashboard did.
+      tr.appendChild(feedbackCell(r));
 
       body.appendChild(tr);
     });

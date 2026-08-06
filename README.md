@@ -1,9 +1,10 @@
 # Static dashboard shell
 
 Single-page app: magic-link sign-in, then reads rows and short-lived signed file
-URLs from a Supabase project. No build step, no server-side code — an assets-only
-Cloudflare Worker. supabase-js is vendored deliberately rather than CDN-loaded, so a
-hijacked CDN cannot exfiltrate a user session.
+URLs from a Supabase project, and writes short feedback signals back. No build step,
+no server-side code — an assets-only Cloudflare Worker. supabase-js is vendored
+deliberately rather than CDN-loaded, so a hijacked CDN cannot exfiltrate a user
+session.
 
 > **Everything under `public/` is published to the open internet.** Keep it free of
 > personal data: no names, no documents, no tracker data, no `service_role` key. The
@@ -18,10 +19,26 @@ hijacked CDN cannot exfiltrate a user session.
 |---|---|
 | `wrangler.jsonc` | Deploy config. Points at `./public`. Not published. |
 | `public/index.html` | Three views: sign-in, loading, dashboard |
-| `public/app.js` | Auth, data load, filtering, signed-URL downloads |
+| `public/app.js` | Auth, data load, filtering, signed-URL downloads, feedback controls |
 | `public/styles.css` | Styling, including the status palette |
 | `public/config.js` | Supabase project URL + publishable key |
 | `public/vendor/supabase.js` | supabase-js UMD, vendored — see below |
+
+## The write path
+
+This surface is no longer read-only. A signed-in viewer can mark a package sent, leave
+a note, or flag "don't send". Those go into an append-only `viewer_signals` table —
+never into the application rows, which still have no insert/update/delete policy at
+all. The table has select and insert policies only, so a viewer cannot edit or erase
+what they recorded; the columns that identify and timestamp a signal are not
+insertable, so their server-side defaults always hold.
+
+Two consequences for anyone editing `app.js`:
+
+- **Never mutate the status badge from a signal.** The source repo decides status; a
+  pending signal renders as a separate chip. The UI must not imply otherwise.
+- **No `innerHTML`, ever.** Note text round-trips through the database and back into
+  the page. Build every node with `createElement` and write text with `textContent`.
 
 ## Deploy
 
