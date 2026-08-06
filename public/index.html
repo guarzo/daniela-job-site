@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <!-- Inline so there is no favicon request to 404 on, and no extra file to serve. -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231d4ed8'/%3E%3C/svg%3E" />
+    <title>Job Search Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <!-- Sign-in view -->
+      <section id="view-auth" class="card auth" hidden>
+        <h1>Job Search Dashboard</h1>
+        <p class="muted">
+          Enter your email and we'll send you a sign-in link. No password to remember.
+        </p>
+        <form id="auth-form" autocomplete="on">
+          <label class="sr-only" for="email">Email address</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="you@example.com"
+            required
+          />
+          <button id="auth-submit" type="submit">Email me a sign-in link</button>
+        </form>
+        <p id="auth-msg" class="msg" role="status" aria-live="polite"></p>
+      </section>
+
+      <!-- Loading view -->
+      <section id="view-loading" class="card centered" hidden>
+        <p class="muted">Loading…</p>
+      </section>
+
+      <!-- Dashboard view -->
+      <section id="view-app" hidden>
+        <header class="topbar">
+          <h1>Job Search Dashboard</h1>
+          <div class="topbar-right">
+            <span id="who" class="muted"></span>
+            <button id="signout" class="link-btn" type="button">Sign out</button>
+          </div>
+        </header>
+
+        <div id="stats" class="stats"></div>
+
+        <div class="filters">
+          <label class="sr-only" for="q">Search</label>
+          <input id="q" type="search" placeholder="Search company or role…" />
+          <div id="status-filters" class="chips"></div>
+        </div>
+
+        <div class="tablewrap">
+          <table id="apps">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th class="num">Fit</th>
+                <th>Documents</th>
+              </tr>
+            </thead>
+            <tbody id="apps-body"></tbody>
+          </table>
+          <p id="empty" class="muted centered" hidden>No applications match this filter.</p>
+        </div>
+
+        <p id="app-msg" class="msg" role="status" aria-live="polite"></p>
+        <footer class="foot muted">
+          Documents open as short-lived private links. Nothing here is public.
+        </footer>
+      </section>
+    </main>
+
+    <script src="vendor/supabase.js"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+# Public build artifacts / editor noise
+.DS_Store
+node_modules/
+*.log
+
+# Nothing secret should ever exist in this repo, but belt-and-braces:
+# this site is SERVED PUBLICLY by Cloudflare Pages even though the repo is private.
+.env
+.env.*
+*.pem
+*service_role*
