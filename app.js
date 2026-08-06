@@ -109,9 +109,12 @@
         }
         rows = res.data || [];
         if (rows.length === 0) {
+          // Deliberately impersonal: this string ships in a publicly served file, so
+          // it must not name anyone. It is also the response an off-allowlist visitor
+          // sees — RLS returns zero rows rather than an error, and that is correct.
           say(
             el('app-msg'),
-            'No applications are visible for this account. If you expected to see some, ask Thomas to add this email address.',
+            'No applications are visible for this account. If you expected to see some, ask the account owner to add this email address.',
             'err'
           );
         } else {

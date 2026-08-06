@@ -1,97 +1,43 @@
-# Daniela Job Search Dashboard — static shell
+# Static dashboard shell
 
-A single-page site that lets Daniela sign in with a magic link and download her
-tailored CVs and cover letters. It is deployed to Cloudflare Pages.
+Single-page app: magic-link sign-in, then reads rows and short-lived signed file
+URLs from a Supabase project. No build step. supabase-js is vendored deliberately
+rather than CDN-loaded, so a hijacked CDN cannot exfiltrate a user session.
 
-**This repo is served publicly.** Cloudflare Pages serves a site over the open
-internet regardless of whether the source repo is private. That is why this repo is
-separate from `ai-job-search`: there is no path by which a misconfigured build can
-publish her documents. Nothing personal belongs in here — no names in content, no
-CVs, no tracker CSV, no service_role key.
+> **Everything in this repo is published.** It deploys to the open internet from the
+> repo root, so any file added here is served — including this one. Keep it free of
+> personal data: no names, no documents, no tracker data, no `service_role` key. The
+> key in `config.js` is a publishable key and grants nothing on its own; access is
+> controlled entirely by Postgres row-level security.
 
-## What's in here
-
-Everything Cloudflare serves lives under `public/`. This README sits **outside** it
-on purpose: Pages would otherwise publish it at `/README.md`, and it names her.
+## Layout
 
 | File | Purpose |
 |---|---|
-| `public/index.html` | Three views: sign-in, loading, dashboard |
-| `public/app.js` | Auth, data load, filtering, signed-URL downloads |
-| `public/styles.css` | Styling, including the status palette |
-| `public/config.js` | Supabase project URL + publishable key (both public by design) |
-| `public/vendor/supabase.js` | supabase-js 2.112.1 UMD, vendored on purpose — see below |
+| `index.html` | Three views: sign-in, loading, dashboard |
+| `app.js` | Auth, data load, filtering, signed-URL downloads |
+| `styles.css` | Styling, including the status palette |
+| `config.js` | Supabase project URL + publishable key |
+| `vendor/supabase.js` | supabase-js UMD, vendored — see below |
 
-Nothing under `public/` contains a personal name. Download filenames are built from
-the `company` column of the RLS-gated row at click time, not from `config.js`.
+## Deploy
 
-### Why supabase-js is vendored rather than loaded from a CDN
+Framework preset **None**, build command **empty**, every path/directory field left
+at its default. The site is at the repo root and there is nothing to build.
 
-A compromised or hijacked CDN could serve modified JS that exfiltrates her session
-token, and there is no build step here to pin an integrity hash against. Vendoring
-makes the bytes we serve the bytes we reviewed. To upgrade:
+Local preview: `python3 -m http.server 8000`. Magic-link redirects only return to an
+origin registered in Supabase, so add that origin there before testing sign-in.
+
+## Upgrading supabase-js
+
+There is no build step to pin an integrity hash against, so the bundle is committed
+rather than fetched at runtime:
 
 ```bash
 npm pack @supabase/supabase-js
 tar -xzf supabase-supabase-js-*.tgz
-cp package/dist/umd/supabase.js public/vendor/supabase.js
+cp package/dist/umd/supabase.js vendor/supabase.js
 ```
 
-## Security model
-
-The publishable key in `config.js` is **public by design**. It identifies the
-project; it grants nothing. Access is controlled entirely by Postgres RLS:
-
-- `public.applications` is default-deny. The only policy is `select` for
-  `authenticated` where `public.is_viewer()` is true.
-- `public.is_viewer()` is a `security definer` function checking the signed-in JWT's
-  email against `public.allowed_viewers`. `execute` is revoked from `anon`.
-- The `applications` storage bucket is **private**. Files are reachable only through
-  short-lived signed URLs (60 seconds), minted per click.
-- There are **no** insert/update/delete policies. Writes happen only from the sync
-  script in the `ai-job-search` repo using the `service_role` key, which lives in a
-  gitignored `.env` on Thomas's machine and is never committed anywhere.
-
-Supabase will mint a JWT for *any* email that requests a magic link. The allowlist is
-what stops an unknown signed-in user from seeing data — they get an empty table. New
-signups should also be disabled in the Supabase dashboard
-(Authentication → Sign In / Providers → disable new user signups) as a second layer.
-
-## Deploy (Cloudflare Pages)
-
-1. Push this directory to its own GitHub repo (private is fine).
-2. Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git.
-3. Framework preset: **None**. Build command: *(empty)*. Output directory: `public`.
-4. Deploy. Note the `*.pages.dev` URL.
-5. In Supabase → Authentication → URL Configuration, set **Site URL** to that URL and
-   add it to **Redirect URLs**. Magic links will not work until this is done.
-
-Local preview: `cd public && python3 -m http.server 8000`, then open
-`http://localhost:8000`. Magic-link redirects only come back to an origin configured
-in Supabase, so add `http://localhost:8000` there too if you want to test locally.
-
-## Data contract
-
-`app.js` reads these columns from `public.applications`:
-
-```
-id, company, role, sector, role_type, status, status_date,
-fit_rating, notes, cv_object, cover_letter_object, updated_at
-```
-
-`cv_object` / `cover_letter_object` are object paths inside the private
-`applications` bucket, e.g. `ntg_vp_strategic_customer_accounts/cv.pdf`. Empty or
-null renders as `—` rather than a broken link.
-
-`status` is one of `drafted`, `applied`, `interview`, `offer`, `hired`, `rejected`,
-`no_response`, `offer_declined`, `interview_only`, `withdrawn`.
-
-**`drafted` means written but not sent.** It is styled in muted grey and excluded
-from the interview-rate denominator, matching `/html-report` in the source repo — an
-unsent package must never read as progress.
-
-## Not built yet
-
-Charts (status funnel, score distribution) are **deferred**, not dropped. v1 is stat
-cards, a filterable table, and downloads. The encrypted single-file report produced by
-`/html-report` in the `ai-job-search` repo remains the offline fallback.
+Operator documentation — deploy steps, security model, allowlist, data contract —
+lives in the private source repo, not here.
