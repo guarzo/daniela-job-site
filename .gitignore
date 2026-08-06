@@ -6,6 +6,10 @@ node_modules/
 # Wrangler local scratch: build temp, local dev state, cached account id
 .wrangler/
 
+# Playwright MCP scratch: console dumps and page snapshots written while
+# checking the render harness in a browser.
+.playwright-mcp/
+
 # Nothing secret should ever exist in this repo, but belt-and-braces:
 # this site is SERVED PUBLICLY by Cloudflare Pages even though the repo is private.
 .env
