@@ -449,25 +449,22 @@ textarea {
   border-bottom: 2px solid var(--fg);
   margin-bottom: var(--s-12);
 }
-.masthead-left {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-3);
+/* The h1 is the artwork, so it needs none of the heading type rules — it has no text
+   node. Only the UA margin has to go, so the mark sits on the 2px rule the way the
+   sign-out row does. The image inside is display:block, which is what keeps the h1
+   from adding line leading around it. */
+.masthead-mark {
+  margin: 0;
 }
-/* The mark, not wallpaper. It appeared at full size on the sign-in screen and then
-   never again, which meant the artwork the whole system is derived from was absent
-   from the only screen anyone actually spends time on. 2.5rem is the floor at which
-   the facets still separate: below about 40px the WPAP planes average out into a
-   dark blob and it stops being the drawing. */
+/* The mark, not wallpaper, and now carrying the masthead alone. 3rem rather than the
+   2.5rem it sat at beside a wordmark: with the word gone it is the only thing on this
+   side of the rule, and at 2.5rem it read as a stray favicon rather than a masthead.
+   The floor is still about 40px — below that the WPAP planes average out into a dark
+   blob and it stops being the drawing. */
 .mast-mark {
+  display: block;
   width: auto;
-  height: 2.5rem;
-  align-self: center;
-  flex: none;
-}
-.masthead h1 {
-  font-size: var(--t-headline);
-  letter-spacing: -0.02em;
+  height: 3rem;
 }
 .masthead-right {
   display: flex;
@@ -873,18 +870,17 @@ td.num {
   align-items: center;
   align-content: center;
 }
+/* The poster is the h1 on this screen, so the heading element is a bare wrapper: no
+   type rules, and no UA margin between it and the form column. */
+.auth-mark-wrap {
+  margin: 0;
+}
 .auth-mark {
-  /* Decorative: the heading beside it already names the app. */
   display: block;
   width: 100%;
   max-width: 30rem;
   height: auto;
   margin-inline: auto;
-}
-.auth h1 {
-  font-size: var(--t-display);
-  letter-spacing: -0.035em;
-  margin-bottom: var(--s-3);
 }
 .auth p {
   color: var(--fg-muted);
@@ -939,8 +935,8 @@ td.num {
   .auth-mark {
     max-width: 19rem;
   }
-  .auth h1 {
-    font-size: var(--t-headline);
+  .mast-mark {
+    height: 2.5rem;
   }
   .band {
     margin-bottom: var(--s-12);

@@ -308,17 +308,23 @@ Shipped as `public/img/chiguire.webp` — 680 × 625, RGBA, 100 KB, derived from
 `.ai` source stays outside `public/` and is never uploaded.
 
 It appears in exactly two places, at two sizes. The sign-in screen runs it at up to
-30rem beside the heading, dropping to 19rem and stacking above it below the card
-breakpoint: that screen is the only one in the app with nothing to do and no data to
-protect, so it is the only one that gets to be a poster. Past sign-in it is a mark, not
-a poster — `public/img/chiguire-mark.webp`, 192 × 176, 19 KB, cropped to the drawing's
-bounding box and set at 2.5rem in the masthead. 2.5rem is the floor: below about 40px
-the WPAP facets average out into a dark blob and it stops being the drawing. The
-separate small file rather than a scaled-down large one, because 100 KB is a poor trade
-for a 40px mark on a phone.
+30rem, dropping to 19rem and stacking above the form below the card breakpoint: that
+screen is the only one in the app with nothing to do and no data to protect, so it is
+the only one that gets to be a poster. Past sign-in it is a mark, not a poster —
+`public/img/chiguire-mark.webp`, 192 × 176, 19 KB, cropped to the drawing's bounding
+box and set at 3rem in the masthead, 2.5rem below the breakpoint. About 40px is the
+floor: under that the WPAP facets average out into a dark blob and it stops being the
+drawing. The separate small file rather than a scaled-down large one, because 100 KB is
+a poor trade for a 40px mark on a phone.
 
-Both instances are decorative and take an empty `alt`; the `h1` beside each carries the
-name.
+**The word is never displayed.** The drawing is the name, and a private dashboard has
+nobody to introduce itself to. So the artwork is not decorative and does not take an
+empty `alt` — it *is* the `h1` on both screens, and its alt text is the only place
+"Chigüire" exists in the rendered page. That keeps the heading in the document outline
+and in the accessibility tree while nothing on screen spells it out. The `h1` wrappers
+drop the UA margin and carry no type rules, since they hold no text node; the images
+inside are `display: block`, which is what keeps the heading from adding leading around
+the art.
 
 Note that `public/` is served to the open internet, so the artwork is reachable at a
 guessable URL by anyone. That is fine for a drawing and would not be fine for anything

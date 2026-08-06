@@ -40,17 +40,19 @@
 
     <!-- Sign-in view -->
     <main id="view-auth" class="wrap auth" hidden>
-      <!-- Purely decorative, hence the empty alt: the h1 beside it carries the name. -->
-      <img
-        class="auth-mark"
-        src="img/chiguire.webp"
-        alt=""
-        width="680"
-        height="625"
-        decoding="async"
-      />
+      <!-- The poster is the heading. Its alt text is the only place the word
+           "Chigüire" appears on this screen. -->
+      <h1 class="auth-mark-wrap">
+        <img
+          class="auth-mark"
+          src="img/chiguire.webp"
+          alt="Chigüire"
+          width="680"
+          height="625"
+          decoding="async"
+        />
+      </h1>
       <div>
-        <h1>Chigüire</h1>
         <p>Enter your email and we'll send you a sign-in link. No password to remember.</p>
         <form id="auth-form" autocomplete="on">
           <label class="sr-only" for="email">Email address</label>
@@ -77,22 +79,25 @@
     <!-- Dashboard view -->
     <div id="view-app" hidden>
       <header class="wrap masthead">
-        <div class="masthead-left">
-          <!--
-            Decorative, hence the empty alt: the h1 beside it carries the name. A
-            192px copy rather than the sign-in artwork, which is 100 KB and would be
-            a poor trade for a 40px mark on a phone.
-          -->
+        <!--
+          The h1 is the artwork. No wordmark: the drawing is the name, and a private
+          dashboard has nobody to introduce itself to. The alt text is what carries
+          "Chigüire" into the accessibility tree and the document outline, so it is
+          the one place the word still has to exist.
+
+          A 192px copy rather than the sign-in artwork, which is 100 KB and would be
+          a poor trade for a 48px mark on a phone.
+        -->
+        <h1 class="masthead-mark">
           <img
             class="mast-mark"
             src="img/chiguire-mark.webp"
-            alt=""
+            alt="Chigüire"
             width="192"
             height="176"
             decoding="async"
           />
-          <h1>Chigüire</h1>
-        </div>
+        </h1>
         <div class="masthead-right">
           <span id="who" class="muted"></span>
           <button id="signout" class="act" type="button">Sign out</button>
