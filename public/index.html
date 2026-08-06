@@ -77,7 +77,22 @@
     <!-- Dashboard view -->
     <div id="view-app" hidden>
       <header class="wrap masthead">
-        <h1>Chigüire</h1>
+        <div class="masthead-left">
+          <!--
+            Decorative, hence the empty alt: the h1 beside it carries the name. A
+            192px copy rather than the sign-in artwork, which is 100 KB and would be
+            a poor trade for a 40px mark on a phone.
+          -->
+          <img
+            class="mast-mark"
+            src="img/chiguire-mark.webp"
+            alt=""
+            width="192"
+            height="176"
+            decoding="async"
+          />
+          <h1>Chigüire</h1>
+        </div>
         <div class="masthead-right">
           <span id="who" class="muted"></span>
           <button id="signout" class="act" type="button">Sign out</button>

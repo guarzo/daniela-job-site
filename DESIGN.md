@@ -52,7 +52,8 @@ seven-column table still has to be scannable at a glance.
 - Warm bone ground by day, deep indigo by night. Both are real, neither is a filter.
 - Four inks with assigned jobs, not four decorative accents.
 - Status carried by shape and label as well as hue, never by hue alone.
-- The chigüire appears large and rarely, never as wallpaper.
+- The chigüire appears twice: a poster at the door, a small mark on the ledger. Never
+  as wallpaper.
 
 ## 2. Colors
 
@@ -292,12 +293,13 @@ not a border, per the side-stripe ban). Long notes live in a disclosure row boun
 their record: the record's closing rule moves down onto the disclosure so the two read
 as one block.
 
-**The 899px breakpoint.** Below 900px both tables abandon columns entirely and each
+**The 979px breakpoint.** Below 980px both tables abandon columns entirely and each
 record becomes a stacked block, with `data-label` on every cell rendering the column
-name through `::before`. The break is at 899 rather than the more obvious 719 because
-the history table has seven columns, and between 720 and 950 it overflowed horizontally
-and clipped the signal pills off the right edge. The breakpoint follows the widest
-table, not the viewport category.
+name through `::before`. The break is well above the obvious 719 because the history
+table has seven columns and needs 923px to lay out with its documents and actions each
+on one line. The breakpoint follows the widest table, not the viewport category, and it
+was measured against `dev/fixtures.js`, which carries the longest company and role
+strings deliberately.
 
 ### The Chigüire
 
@@ -305,11 +307,18 @@ Shipped as `public/img/chiguire.webp` — 680 × 625, RGBA, 100 KB, derived from
 `Chiguire_1.ai` at the worktree root via `pdftocairo` and Pillow at quality 70. The
 `.ai` source stays outside `public/` and is never uploaded.
 
-It appears in exactly one place: the sign-in screen, at up to 30rem beside the heading,
-dropping to 19rem and stacking above it below 900px. That screen is the only one in the
-app with nothing to do and no data to protect, so it is the only one that gets to be a
-poster. Everything past sign-in is a document. The instance is decorative and takes an
-empty `alt`; the `h1` beside it carries the name.
+It appears in exactly two places, at two sizes. The sign-in screen runs it at up to
+30rem beside the heading, dropping to 19rem and stacking above it below the card
+breakpoint: that screen is the only one in the app with nothing to do and no data to
+protect, so it is the only one that gets to be a poster. Past sign-in it is a mark, not
+a poster — `public/img/chiguire-mark.webp`, 192 × 176, 19 KB, cropped to the drawing's
+bounding box and set at 2.5rem in the masthead. 2.5rem is the floor: below about 40px
+the WPAP facets average out into a dark blob and it stops being the drawing. The
+separate small file rather than a scaled-down large one, because 100 KB is a poor trade
+for a 40px mark on a phone.
+
+Both instances are decorative and take an empty `alt`; the `h1` beside each carries the
+name.
 
 Note that `public/` is served to the open internet, so the artwork is reachable at a
 guessable URL by anyone. That is fine for a drawing and would not be fine for anything
@@ -349,4 +358,4 @@ else.
 - **Don't** build a hero-metric block: big number, small label, gradient accent.
 - **Don't** nest cards, or wrap things in containers by reflex.
 - **Don't** use em dashes in interface copy.
-- **Don't** let the chigüire become wallpaper. It appears large and rarely.
+- **Don't** let the chigüire become wallpaper. Twice per session, at two sizes.

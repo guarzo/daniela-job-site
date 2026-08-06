@@ -11,7 +11,7 @@ session.
 > key in `public/config.js` is a *publishable* key and grants nothing on its own;
 > access is controlled entirely by Postgres row-level security.
 >
-> Files outside `public/` — this README, `wrangler.jsonc` — are never uploaded.
+> Files outside `public/` — this README, `wrangler.jsonc`, `dev/` — are never uploaded.
 
 ## Layout
 
@@ -23,6 +23,26 @@ session.
 | `public/styles.css` | Styling, including the status palette |
 | `public/config.js` | Supabase project URL + publishable key |
 | `public/vendor/supabase.js` | supabase-js UMD, vendored — see below |
+| `dev/harness.html` | Local render harness. Not published — see below |
+| `dev/fixtures.js` | Fixture rows for the harness. Invented data only. Not published |
+
+## Looking at the page
+
+The dashboard only renders with a Supabase session, so an unauthenticated browser gets
+the sign-in screen and nothing else. This is exactly how a full redesign once shipped
+without anyone ever seeing the ledger with rows in it.
+
+`dev/harness.html` replaces the Supabase client wholesale and loads the real
+`styles.css` and `app.js` against fixture rows. It injects `public/index.html`'s body at
+runtime rather than duplicating it, so it cannot drift from the page it tests.
+
+```bash
+python3 -m http.server 8788        # from the repository root
+# http://localhost:8788/dev/harness.html
+```
+
+Query flags: `?empty`, `?error`, `?offline`, `?auth` for the degraded states. Run this
+before claiming any visual change is done.
 
 ## The write path
 
