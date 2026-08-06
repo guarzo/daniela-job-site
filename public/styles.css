@@ -219,6 +219,16 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
+/* Left unstyled, the browser default is a blue that belongs to no part of this
+   palette, and it turns up constantly because selecting a company name to paste
+   into a search is a thing she actually does. Acid ground under paper ink is the
+   same pairing the offer badge uses, and it is fixed rather than theme-derived for
+   the same reason the badge is: acid is only ever a ground. */
+::selection {
+  background: var(--acid);
+  color: var(--paper-ink);
+}
+
 /* Light text on a dark ground blooms and reads heavier than it measures. Open the
    leading and tracking slightly rather than reaching for a lighter weight. */
 @media (prefers-color-scheme: dark) {
@@ -329,7 +339,16 @@ button {
   cursor: default;
 }
 
-/* Text-level action. Underlined, so it is never a colour-only affordance. */
+/* Text-level action. Underlined, so it is never a colour-only affordance — but the
+   underline is drawn in the muted ink rather than the text colour. A ledger row
+   carries five of these, so at full strength a six-row table puts thirty hard
+   underlines on screen and the actual content loses. It firms up to the text colour
+   on hover and focus, where the question is actually being asked.
+
+   Muted rather than the rule colour, which was the first attempt: --line lands at
+   1.23:1 on the sunk ground, and this underline is the only thing marking these as
+   controls, so it has to clear the 3:1 in WCAG 1.4.11 on its own. --fg-muted is
+   6.09:1 on paper and 6.53:1 on the night sunk ground. */
 .act {
   position: relative;
   background: none;
@@ -339,8 +358,17 @@ button {
   font-size: 0.9375rem;
   text-align: left;
   text-decoration: underline;
+  text-decoration-color: var(--fg-muted);
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
+  transition: text-decoration-color 120ms var(--ease);
+}
+.act:hover,
+.act:focus-visible {
+  text-decoration-color: currentColor;
+}
+.act:disabled {
+  text-decoration: none;
 }
 .act::before {
   /* Keeps the visible mark small while the hit target stays comfortable. Vertical
@@ -420,6 +448,22 @@ textarea {
   padding-bottom: var(--s-4);
   border-bottom: 2px solid var(--fg);
   margin-bottom: var(--s-12);
+}
+.masthead-left {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+}
+/* The mark, not wallpaper. It appeared at full size on the sign-in screen and then
+   never again, which meant the artwork the whole system is derived from was absent
+   from the only screen anyone actually spends time on. 2.5rem is the floor at which
+   the facets still separate: below about 40px the WPAP planes average out into a
+   dark blob and it stops being the drawing. */
+.mast-mark {
+  width: auto;
+  height: 2.5rem;
+  align-self: center;
+  flex: none;
 }
 .masthead h1 {
   font-size: var(--t-headline);
@@ -503,7 +547,9 @@ textarea {
 }
 
 .ledger td {
-  padding: var(--s-3);
+  /* Tighter vertically than horizontally. Twelve on all four sides read as generous
+     on a three-column form and as wasteful on a ledger meant to hold thirty rows. */
+  padding: var(--s-2) var(--s-3);
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
@@ -597,11 +643,14 @@ td.num {
 
 /* ---------- documents ---------- */
 
+/* Documents sit on one line. Stacked, they guaranteed a second line on every row
+   that had both a CV and a cover letter, which was most of them — the single
+   largest reason a one-line record was rendering ninety pixels tall. */
 .docs {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--s-1);
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: var(--s-4);
 }
 /* Document labels are two words at most; wrapping them turns a five-row table into
    a ten-row one. Let the column claim the width instead. */
@@ -611,25 +660,38 @@ td.num {
 
 /* ---------- note disclosure ---------- */
 
+/* The note disclosure was set in mono, uppercase, at label size and muted — which
+   is the exact recipe used for the COMPANY / ROLE / FIT column headers directly
+   above it. It read as a caption for the row rather than as something to press.
+   It now borrows the action treatment instead, and keeps the +/− as the state
+   indicator rather than as the whole affordance. */
 .disc {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--s-1);
   background: none;
   border: 0;
   padding: var(--s-1) 0;
-  margin-top: var(--s-1);
-  font-family: var(--mono);
-  font-size: var(--t-label);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  margin-top: 2px;
+  font-size: 0.875rem;
   color: var(--fg-muted);
+  text-decoration: underline;
+  text-decoration-color: var(--fg-muted);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 120ms var(--ease), text-decoration-color 120ms var(--ease);
 }
-.disc:hover {
+.disc:hover,
+.disc:focus-visible {
   color: var(--fg);
+  text-decoration-color: currentColor;
 }
 .disc::after {
   content: '+';
+  font-family: var(--mono);
+  /* The glyph carries the open/closed state, so it must not be the first thing
+     that disappears when the label is read at a glance. */
+  text-decoration: none;
 }
 .disc[aria-expanded='true']::after {
   content: '\2212'; /* minus */
@@ -688,10 +750,18 @@ td.num {
   text-decoration-thickness: 1px;
 }
 
+/* Actions stay on one line. With wrap enabled the table was free to hand this
+   column too little width and let "Don't send" drop to a second row, which cost a
+   line on every record in the band. Refusing to wrap raises the cell's min-content
+   width, so the table has to allocate the space instead. Below the card breakpoint
+   the table stops being a table and this no longer applies. */
 .sigbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-4);
+  flex-wrap: nowrap;
+  gap: var(--s-3);
+}
+.sigbar .act {
+  white-space: nowrap;
 }
 
 .noteform {
@@ -850,8 +920,14 @@ td.num {
 /* ---------- narrow ---------- */
 
 /* Below this the table stops being a table and becomes a stack of records. Nothing
-   is dropped: the column labels move out of the header row and onto each cell. */
-@media (max-width: 899px) {
+   is dropped: the column labels move out of the header row and onto each cell.
+
+   979 rather than 899 because the sent band's seven columns need 923px to lay out
+   with documents and actions each on one line. At the old breakpoint the range
+   900-979 fell between the two layouts: too narrow for the table, too wide to be
+   given cards, so it took horizontal scroll instead. Measured, not guessed — the
+   dev/harness.html fixtures include the longest company and role strings. */
+@media (max-width: 979px) {
   :where(.wrap) {
     padding: var(--s-6) var(--s-4) var(--s-16);
   }
@@ -911,6 +987,14 @@ td.num {
      a phone. Nowrap is a desktop nicety, not a rule. */
   .sig {
     white-space: normal;
+  }
+  /* Same reasoning for the action and document rows. Refusing to wrap is how the
+     table is made to allocate a column enough width; in card layout there is no
+     column to argue with, and the refusal just pushes the page sideways — three
+     actions need 248px and a 360px phone has 185px to give. */
+  .sigbar,
+  .docs {
+    flex-wrap: wrap;
   }
   .ledger td[data-label]::before {
     content: attr(data-label);
