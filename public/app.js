@@ -1,4 +1,4 @@
-/* Job Search Dashboard — Cloudflare Pages shell.
+/* Chigüire — job search dashboard, Cloudflare assets-only shell.
  *
  * This file is served publicly. It contains no personal data: every row and every
  * document comes from Supabase after a magic-link sign-in, and is gated by RLS on
@@ -29,20 +29,33 @@
     interview_only: 'Interview only',
     withdrawn: 'Withdrawn',
   };
-  var STATUS_COLOR = {
-    drafted: '#94a3b8',
-    applied: '#3b82f6',
-    interview: '#8b5cf6',
-    offer: '#10b981',
-    hired: '#059669',
-    rejected: '#ef4444',
-    no_response: '#cbd5e1',
-    offer_declined: '#f59e0b',
-    interview_only: '#8b5cf6',
-    withdrawn: '#a1a1aa',
+
+  /* Badge treatment per status. Colour is never the only carrier: the label is
+   * always spelled out, and fill / dash / strike / ring each encode something on
+   * their own. See the status table in DESIGN.md.
+   *
+   *   fill    an offer exists (acid ground, ink on top) — the only use of acid
+   *   dashed  never really underway: not sent yet, or never answered
+   *   struck  she closed it herself, rather than it closing on her
+   *   ring    hired, the one terminal state that earns a second mark
+   */
+  var STATUS_STYLE = {
+    drafted: 'badge-outline badge-dashed',
+    applied: 'badge-outline',
+    interview: 'badge-outline',
+    interview_only: 'badge-outline',
+    rejected: 'badge-outline',
+    no_response: 'badge-outline badge-dashed',
+    withdrawn: 'badge-outline badge-struck',
+    offer: 'badge-acid',
+    offer_declined: 'badge-acid badge-struck',
+    hired: 'badge-acid badge-ring',
   };
+
   // Statuses that count as a live, submitted application.
   var ACTIVE = ['applied', 'interview', 'offer'];
+  // Statuses that mean an interview happened at some point.
+  var REACHED_INTERVIEW = ['interview', 'interview_only', 'offer', 'offer_declined', 'hired'];
 
   var el = function (id) { return document.getElementById(id); };
   var rows = [];
@@ -56,9 +69,25 @@
     });
   }
 
+  // All three bands at once. Used to stand the dashboard down when a load fails:
+  // an empty table under a live heading reads as "you have nothing", which is a
+  // different claim from "we could not find out".
+  function bands(on) {
+    ['queue-band', 'history-band', 'rates-band'].forEach(function (b) {
+      el(b).hidden = !on;
+    });
+  }
+
   function say(node, text, kind) {
     node.textContent = text;
-    node.className = 'msg' + (kind ? ' ' + kind : '');
+    node.className = 'msg' + (kind ? ' msg-' + kind : '');
+  }
+
+  function elem(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
   }
 
   /* ---------- auth ---------- */
@@ -110,7 +139,7 @@
     Promise.all([
       sb
         .from('applications')
-        .select('id,company,role,sector,role_type,status,status_date,fit_rating,notes,cv_object,cover_letter_object,updated_at')
+        .select('id,company,role,status,status_date,fit_rating,notes,cv_object,cover_letter_object')
         .order('fit_rating', { ascending: false, nullsFirst: false }),
       sb
         .from('viewer_signals')
@@ -121,9 +150,13 @@
       var sigRes = both[1];
       show('view-app');
       if (appsRes.error) {
+        // Same reasoning as the transport catch below: stand the bands down rather
+        // than presenting empty tables as an answer.
+        bands(false);
         say(el('app-msg'), 'Could not load applications: ' + appsRes.error.message, 'err');
         return;
       }
+      bands(true);
       rows = appsRes.data || [];
 
       // A failure to read feedback must not blank the dashboard — the documents are
@@ -134,106 +167,59 @@
         // Deliberately impersonal: this string ships in a publicly served file, so
         // it must not name anyone. It is also the response an off-allowlist visitor
         // sees — RLS returns zero rows rather than an error, and that is correct.
+        // Not styled as an error for the same reason: zero rows is a valid answer,
+        // and colouring it red would tell a visitor they hit a wall rather than a
+        // legitimately empty account.
         say(
           el('app-msg'),
-          'No applications are visible for this account. If you expected to see some, ask the account owner to add this email address.',
-          'err'
+          'No applications are visible for this account. If you expected to see some, ask the account owner to add this email address.'
         );
       } else if (sigRes.error) {
         say(el('app-msg'), 'Applications loaded, but feedback could not be read: ' + sigRes.error.message, 'err');
       } else {
         say(el('app-msg'), '');
       }
-      renderStats();
+      renderQueue();
       renderFilters();
-      renderTable();
+      renderHistory();
+      renderRates();
+    },
+    // Two-argument .then, not a trailing .catch: this handler must see rejections
+    // from the queries above and nothing else. A trailing .catch would also swallow
+    // any exception thrown by the render calls in the success path and report it as
+    // a network failure, which would send someone to check their wifi over a bug.
+    function (err) {
+      // Both queries reject together on a transport failure — offline, DNS, Supabase
+      // unreachable. Without this the page sits on "Loading" indefinitely with no way
+      // out but a manual reload, which is the wrong answer on a phone with one bar.
+      // The bands stand down rather than showing empty tables: "Nothing drafted right
+      // now" would be a lie when the truth is that we never got to ask.
+      show('view-app');
+      bands(false);
+      say(
+        el('app-msg'),
+        'Could not reach the server: ' + String(err && err.message ? err.message : err) + '. Check your connection and reload.',
+        'err'
+      );
     });
   }
 
-  function renderStats() {
-    var drafted = rows.filter(function (r) { return r.status === 'drafted'; }).length;
-    var active = rows.filter(function (r) { return ACTIVE.indexOf(r.status) !== -1; }).length;
-    var interviews = rows.filter(function (r) {
-      return r.status === 'interview' || r.status === 'interview_only' || r.status === 'offer' || r.status === 'hired';
-    }).length;
-    // Draft rows are excluded from every rate: an unsent package is not a submission.
-    var submitted = rows.filter(function (r) { return r.status !== 'drafted'; }).length;
-    var rate = submitted ? Math.round((interviews / submitted) * 100) + '%' : '—';
-
-    var stats = [
-      { n: rows.length, l: 'Packages' },
-      { n: drafted, l: 'Draft (not sent)' },
-      { n: active, l: 'Active' },
-      { n: submitted, l: 'Submitted' },
-      { n: rate, l: 'Interview rate' },
-    ];
-    var box = el('stats');
-    box.textContent = '';
-    stats.forEach(function (s) {
-      var d = document.createElement('div');
-      d.className = 'stat';
-      var n = document.createElement('div');
-      n.className = 'n';
-      n.textContent = String(s.n);
-      var l = document.createElement('div');
-      l.className = 'l';
-      l.textContent = s.l;
-      d.appendChild(n);
-      d.appendChild(l);
-      box.appendChild(d);
-    });
-  }
-
-  function renderFilters() {
-    var present = [];
-    rows.forEach(function (r) {
-      if (present.indexOf(r.status) === -1) present.push(r.status);
-    });
-    var box = el('status-filters');
-    box.textContent = '';
-    ['all'].concat(present).forEach(function (s) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'chip';
-      b.textContent = s === 'all' ? 'All' : STATUS_LABEL[s] || s;
-      b.setAttribute('aria-pressed', String(filter.status === s));
-      b.addEventListener('click', function () {
-        filter.status = s;
-        renderFilters();
-        renderTable();
-      });
-      box.appendChild(b);
-    });
-  }
-
-  el('q').addEventListener('input', function (e) {
-    filter.q = e.target.value.toLowerCase();
-    renderTable();
-  });
-
-  function visible() {
-    return rows.filter(function (r) {
-      if (filter.status !== 'all' && r.status !== filter.status) return false;
-      if (!filter.q) return true;
-      return ((r.company || '') + ' ' + (r.role || '')).toLowerCase().indexOf(filter.q) !== -1;
-    });
-  }
+  /* ---------- shared cells ---------- */
 
   function badge(status) {
-    var s = document.createElement('span');
-    s.className = 'badge';
-    s.style.background = STATUS_COLOR[status] || '#94a3b8';
+    var s = elem('span', 'badge ' + (STATUS_STYLE[status] || 'badge-outline'));
+    // Only known statuses get a colour token; an unrecognised one falls back to the
+    // inherited foreground rather than resolving to an undefined custom property.
+    if (STATUS_STYLE[status]) s.style.setProperty('--badge', 'var(--st-' + status + ')');
     s.textContent = STATUS_LABEL[status] || status;
     return s;
   }
 
   function docButton(label, objectPath, filename) {
-    var b = document.createElement('button');
+    var b = elem('button', 'act', label);
     b.type = 'button';
-    b.className = 'doc';
-    b.textContent = label;
     if (!objectPath) {
-      b.textContent = '—';
+      b.textContent = 'None yet';
       b.disabled = true;
       return b;
     }
@@ -265,17 +251,93 @@
     return b;
   }
 
+  function docsCell(r) {
+    var td = elem('td');
+    td.setAttribute('data-label', 'Documents');
+    var box = elem('div', 'docs');
+    // Filename stem comes from the RLS-gated row, never from a file served
+    // publicly — nothing on the open internet should carry a personal name.
+    var stem = r.company || 'Application';
+    if (r.cv_object) box.appendChild(docButton('CV', r.cv_object, stem + ' - CV.pdf'));
+    if (r.cover_letter_object)
+      box.appendChild(docButton('Cover letter', r.cover_letter_object, stem + ' - Cover Letter.pdf'));
+    if (!r.cv_object && !r.cover_letter_object) box.appendChild(docButton('', null));
+    td.appendChild(box);
+    return td;
+  }
+
+  /* The upstream note used to be a `title` tooltip, which keyboard and touch users
+   * could not reach at all. It is a real disclosure now: a button in the role cell
+   * that reveals a full-width row underneath. Returns the extra <tr>, or null.
+   *
+   * Cell contents are wrapped in a single element because the narrow layout turns
+   * each cell into a two-column label/value grid, and loose children would each
+   * become a grid item. */
+  function roleCell(r, colspan) {
+    var td = elem('td');
+    td.setAttribute('data-label', 'Role');
+    var box = elem('div');
+    box.appendChild(elem('div', null, r.role || ''));
+    td.appendChild(box);
+    if (!r.notes) return { td: td, extra: null };
+
+    var id = 'note-' + r.id;
+    var btn = elem('button', 'disc', 'Note');
+    btn.type = 'button';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', id);
+
+    var extra = elem('tr', 'noterow');
+    extra.hidden = true;
+    var noteTd = elem('td');
+    noteTd.id = id;
+    noteTd.colSpan = colspan;
+    noteTd.appendChild(elem('p', null, r.notes));
+    extra.appendChild(noteTd);
+
+    btn.addEventListener('click', function () {
+      var open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!open));
+      extra.hidden = open;
+    });
+
+    box.appendChild(btn);
+    return { td: td, extra: extra };
+  }
+
   /* ---------- feedback ---------- */
 
-  function sigChip(s) {
-    var c = document.createElement('span');
-    c.className = 'sig' + (s.kind === 'hold' ? ' hold' : '');
+  /* Signals are insert-only: there is no retraction, so a decision she changed her
+   * mind about is demoted rather than deleted. The most recent sent/hold wins and
+   * every earlier one is struck through, which keeps the record honest without
+   * making the current answer ambiguous. Notes never supersede anything. */
+  function decoratedSignals(appId) {
+    var list = signalsByApp[appId] || [];
+    var last = -1;
+    list.forEach(function (s, i) {
+      if (s.kind === 'sent' || s.kind === 'hold') last = i;
+    });
+    return list.map(function (s, i) {
+      var superseded = (s.kind === 'sent' || s.kind === 'hold') && i !== last;
+      return { s: s, superseded: superseded };
+    });
+  }
+
+  function sigChip(d) {
+    var s = d.s;
+    var cls = 'sig' + (s.kind === 'hold' ? ' sig-hold' : '') + (d.superseded ? ' sig-old' : '');
     var base = s.kind === 'sent' ? 'Sent' : s.kind === 'hold' ? "Don't send" : 'Note';
     var when = (s.created_at || '').slice(0, 10);
-    c.textContent = base + (when ? ' · ' + when : '') + (s.processed_at ? '' : ' · awaiting sync');
+    var c = elem('span', cls, base + (when ? ' · ' + when : '') + (s.processed_at ? '' : ' · awaiting sync'));
     // title is an attribute, not parsed as markup — safe for round-tripped note text.
     if (s.note) c.title = s.note;
+    if (d.superseded) c.title = (s.note ? s.note + '\n\n' : '') + 'Replaced by a later decision.';
     return c;
+  }
+
+  function redrawChips(appId, chips) {
+    chips.textContent = '';
+    decoratedSignals(appId).forEach(function (d) { chips.appendChild(sigChip(d)); });
   }
 
   function recordSignal(appId, kind, note, chips, btn) {
@@ -296,7 +358,19 @@
         var row = (res.data || [])[0];
         if (row) {
           (signalsByApp[appId] = signalsByApp[appId] || []).push(row);
-          chips.appendChild(sigChip(row));
+          // Redraw rather than append: the new signal may have superseded an older one.
+          redrawChips(appId, chips);
+          // The chip now reads "awaiting sync"; the row's ground has to agree. Pending
+          // has two carriers and they are set in different places, so without this the
+          // record she just acted on sat on settled ground wearing a pending chip until
+          // the next reload — the interface contradicting itself on the primary path.
+          // Repainting rather than re-rendering: a re-render would close a note form
+          // left open on another row and drop focus from the button she just pressed.
+          var tr = ownerRow(chips);
+          if (tr) {
+            var after = tr.nextElementSibling;
+            paintPending(tr, after && after.className.indexOf('noterow') !== -1 ? after : null);
+          }
         }
         say(el('app-msg'), 'Recorded. It reaches the tracker the next time signals are picked up.', 'ok');
         return true;
@@ -312,38 +386,50 @@
   // One form per row, reused by both text kinds. Toggled directly rather than by
   // re-rendering the table, so half-typed text survives a click elsewhere.
   function noteForm(appId, chips) {
-    var root = document.createElement('div');
-    root.className = 'noteform';
-    root.hidden = true;
+    var root = elem('div', 'noteform');
+    root.setAttribute('data-open', 'false');
+    var inner = elem('div');
 
     var ta = document.createElement('textarea');
     ta.maxLength = NOTE_MAX;
+    ta.setAttribute('aria-label', 'Note');
 
-    var row = document.createElement('div');
-    row.className = 'row';
-    var save = document.createElement('button');
+    var row = elem('div', 'row');
+    var save = elem('button', 'act', 'Save');
     save.type = 'button';
-    save.className = 'doc';
-    save.textContent = 'Save';
-    var cancel = document.createElement('button');
+    var cancel = elem('button', 'act', 'Cancel');
     cancel.type = 'button';
-    cancel.className = 'doc';
-    cancel.textContent = 'Cancel';
-    var count = document.createElement('span');
-    count.className = 'count';
+    var count = elem('span', 'count');
 
     var form = { root: root, kind: 'note' };
-    function setCount() { count.textContent = ta.value.length + ' / ' + NOTE_MAX; }
-    function close() { root.hidden = true; ta.value = ''; setCount(); }
+    var opener = null;
+    function setCount() {
+      count.textContent = ta.value.length + ' / ' + NOTE_MAX;
+      // Only reachable if maxLength is bypassed, but the DB check is the real gate.
+      count.setAttribute('data-over', String(ta.value.length > NOTE_MAX));
+    }
+    function close() {
+      root.setAttribute('data-open', 'false');
+      ta.value = '';
+      setCount();
+      // The form is visibility:hidden once closed, so focus would otherwise fall to
+      // the body and a keyboard user would restart the tab run from the top of the
+      // page. Send it back to whichever button opened this.
+      if (opener && document.contains(opener)) opener.focus();
+    }
 
     ta.addEventListener('input', setCount);
     cancel.addEventListener('click', close);
+    ta.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { close(); }
+    });
     save.addEventListener('click', function () {
       var text = ta.value.trim();
       // The DB enforces this too (note_required_for_text_kinds); checking here saves a
       // round trip and phrases the failure as instruction rather than a constraint name.
       if (!text) {
         say(el('app-msg'), 'Add some text before saving, or press Cancel.', 'err');
+        ta.focus();
         return;
       }
       recordSignal(appId, form.kind, text, chips, save).then(function (ok) {
@@ -351,12 +437,13 @@
       });
     });
 
-    form.open = function (kind) {
+    form.open = function (kind, from) {
       form.kind = kind;
+      opener = from || null;
       ta.placeholder = kind === 'hold'
         ? "Why this one shouldn't go out"
         : 'What you want us to know about this one';
-      root.hidden = false;
+      root.setAttribute('data-open', 'true');
       setCount();
       ta.focus();
     };
@@ -364,87 +451,225 @@
     row.appendChild(save);
     row.appendChild(cancel);
     row.appendChild(count);
-    root.appendChild(ta);
-    root.appendChild(row);
+    inner.appendChild(ta);
+    inner.appendChild(row);
+    root.appendChild(inner);
     return form;
   }
 
-  function feedbackCell(r) {
-    var td = document.createElement('td');
+  function feedbackCell(r, actions) {
+    var td = elem('td');
+    td.setAttribute('data-label', 'Feedback');
+    var box = elem('div');
 
-    var chips = document.createElement('div');
-    (signalsByApp[r.id] || []).forEach(function (s) { chips.appendChild(sigChip(s)); });
-    td.appendChild(chips);
+    var chips = elem('div', 'sigs');
+    redrawChips(r.id, chips);
+    box.appendChild(chips);
 
     var form = noteForm(r.id, chips);
+    var bar = elem('div', 'sigbar');
 
-    var bar = document.createElement('div');
-    var sent = document.createElement('button');
-    sent.type = 'button';
-    sent.className = 'doc';
-    sent.textContent = 'Mark sent';
-    sent.addEventListener('click', function () { recordSignal(r.id, 'sent', null, chips, sent); });
-    bar.appendChild(sent);
+    if (actions.indexOf('sent') !== -1) {
+      var sent = elem('button', 'act', 'Mark sent');
+      sent.type = 'button';
+      sent.addEventListener('click', function () { recordSignal(r.id, 'sent', null, chips, sent); });
+      bar.appendChild(sent);
+    }
 
-    [['note', 'Note…'], ['hold', "Don't send"]].forEach(function (pair) {
-      var b = document.createElement('button');
+    var textKinds = [['note', 'Add note']];
+    if (actions.indexOf('hold') !== -1) textKinds.push(['hold', "Don't send"]);
+    textKinds.forEach(function (pair) {
+      var b = elem('button', 'act', pair[1]);
       b.type = 'button';
-      b.className = 'doc';
-      b.textContent = pair[1];
-      b.addEventListener('click', function () { form.open(pair[0]); });
+      b.addEventListener('click', function () { form.open(pair[0], b); });
       bar.appendChild(b);
     });
 
-    td.appendChild(bar);
-    td.appendChild(form.root);
+    box.appendChild(bar);
+    box.appendChild(form.root);
+    td.appendChild(box);
     return td;
   }
 
-  function renderTable() {
-    var body = el('apps-body');
+  // A row is pending when it carries at least one signal the tracker has not picked
+  // up. It changes the row's ground, never its status badge: the repo decides status,
+  // and the UI must not imply the dashboard did.
+  function isPending(r) {
+    return (signalsByApp[r.id] || []).some(function (s) { return !s.processed_at; });
+  }
+
+  function fitCell(r) {
+    var td = elem('td', 'num', r.fit_rating == null ? '—' : String(r.fit_rating));
+    td.setAttribute('data-label', 'Fit');
+    return td;
+  }
+
+  function companyCell(r) {
+    var td = elem('td', 'cell-company', r.company || '');
+    td.setAttribute('data-label', 'Company');
+    return td;
+  }
+
+  // The pending ground, applied to a whole record. Shared by first render and by the
+  // post-signal repaint so the two cannot drift: they were separate before, and the
+  // repaint was simply missing. The disclosure row is a continuation of the same
+  // record, so it carries the pending edge too — without it the left rule stops
+  // mid-record. Both row kinds are built classless, so assigning className wholesale
+  // is safe here.
+  function paintPending(tr, extra) {
+    tr.className = 'pending';
+    if (extra) extra.className = 'noterow pending';
+  }
+
+  // Walks up to the <tr> that owns a node. Used to find the row a chip belongs to
+  // without threading the row through feedbackCell and noteForm purely to reach it.
+  function ownerRow(node) {
+    var n = node;
+    while (n && n.nodeName !== 'TR') n = n.parentNode;
+    return n;
+  }
+
+  function appendRow(body, tr, role, r) {
+    if (isPending(r)) paintPending(tr, role.extra);
+    body.appendChild(tr);
+    if (role.extra) body.appendChild(role.extra);
+  }
+
+  /* ---------- band 1: ready to send ---------- */
+
+  function renderQueue() {
+    var body = el('queue-body');
     body.textContent = '';
-    var list = visible();
-    el('empty').hidden = list.length !== 0;
+    // Best fit first: this band answers "what should go out next".
+    var list = rows.filter(function (r) { return r.status === 'drafted'; });
+    el('queue-count').textContent = list.length ? list.length + ' waiting' : '';
+    el('queue-empty').hidden = list.length !== 0;
+    el('queue').hidden = list.length === 0;
+
     list.forEach(function (r) {
-      var tr = document.createElement('tr');
+      var tr = elem('tr');
+      var role = roleCell(r, 5);
+      tr.appendChild(companyCell(r));
+      tr.appendChild(role.td);
+      tr.appendChild(fitCell(r));
+      tr.appendChild(docsCell(r));
+      tr.appendChild(feedbackCell(r, ['sent', 'hold']));
+      appendRow(body, tr, role, r);
+    });
+  }
 
-      var tdC = document.createElement('td');
-      tdC.textContent = r.company || '';
-      tr.appendChild(tdC);
+  /* ---------- band 2: out in the world ---------- */
 
-      var tdR = document.createElement('td');
-      tdR.textContent = r.role || '';
-      if (r.notes) tdR.title = r.notes;
-      tr.appendChild(tdR);
+  function renderFilters() {
+    var present = [];
+    rows.forEach(function (r) {
+      if (r.status !== 'drafted' && present.indexOf(r.status) === -1) present.push(r.status);
+    });
+    var box = el('status-filters');
+    box.textContent = '';
+    ['all'].concat(present).forEach(function (s) {
+      var b = elem('button', 'chip', s === 'all' ? 'All' : STATUS_LABEL[s] || s);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(filter.status === s));
+      b.addEventListener('click', function () {
+        filter.status = s;
+        renderFilters();
+        renderHistory();
+      });
+      box.appendChild(b);
+    });
+  }
 
-      var tdS = document.createElement('td');
-      tdS.appendChild(badge(r.status));
-      tr.appendChild(tdS);
+  el('q').addEventListener('input', function (e) {
+    filter.q = e.target.value.toLowerCase();
+    renderHistory();
+  });
 
-      var tdD = document.createElement('td');
-      tdD.textContent = r.status_date || '';
-      tr.appendChild(tdD);
+  function sent() {
+    return rows.filter(function (r) { return r.status !== 'drafted'; });
+  }
 
-      var tdF = document.createElement('td');
-      tdF.className = 'num';
-      tdF.textContent = r.fit_rating == null ? '' : String(r.fit_rating);
-      tr.appendChild(tdF);
+  function renderHistory() {
+    var all = sent();
+    var list = all.filter(function (r) {
+      if (filter.status !== 'all' && r.status !== filter.status) return false;
+      if (!filter.q) return true;
+      return ((r.company || '') + ' ' + (r.role || '')).toLowerCase().indexOf(filter.q) !== -1;
+    });
+    // Recency, not fit. Fit answers "what should I send", and the queue above already
+    // answered it; this band answers "what moved".
+    list = list.slice().sort(function (a, b) {
+      return String(b.status_date || '').localeCompare(String(a.status_date || ''));
+    });
 
-      var tdDoc = document.createElement('td');
-      // Filename stem comes from the RLS-gated row, never from a file served
-      // publicly — nothing on the open internet should carry a personal name.
-      var stem = r.company || 'Application';
-      if (r.cv_object) tdDoc.appendChild(docButton('CV', r.cv_object, stem + ' - CV.pdf'));
-      if (r.cover_letter_object)
-        tdDoc.appendChild(docButton('Cover letter', r.cover_letter_object, stem + ' - Cover Letter.pdf'));
-      if (!r.cv_object && !r.cover_letter_object) tdDoc.appendChild(docButton('—', null));
-      tr.appendChild(tdDoc);
+    el('history-count').textContent = all.length
+      ? (list.length === all.length ? all.length + ' sent' : list.length + ' of ' + all.length)
+      : '';
 
-      // Status badge above is never mutated by a pending signal — the repo decides
-      // status, and the UI must not imply the dashboard did.
-      tr.appendChild(feedbackCell(r));
+    var body = el('history-body');
+    body.textContent = '';
+    list.forEach(function (r) {
+      var tr = elem('tr');
+      var role = roleCell(r, 7);
 
-      body.appendChild(tr);
+      var status = elem('td');
+      status.setAttribute('data-label', 'Status');
+      status.appendChild(badge(r.status));
+
+      var date = elem('td', 'cell-date', r.status_date || '—');
+      date.setAttribute('data-label', 'Last moved');
+
+      tr.appendChild(companyCell(r));
+      tr.appendChild(role.td);
+      tr.appendChild(status);
+      tr.appendChild(date);
+      tr.appendChild(fitCell(r));
+      tr.appendChild(docsCell(r));
+      tr.appendChild(feedbackCell(r, ['note']));
+      appendRow(body, tr, role, r);
+    });
+
+    var empty = el('history-empty');
+    empty.hidden = list.length !== 0;
+    el('history').hidden = list.length === 0;
+    // Nothing sent yet means nothing to search or filter. The controls stay for a
+    // search that merely returns no matches — she needs them to get back.
+    el('history-tools').hidden = all.length === 0;
+    empty.textContent = all.length === 0
+      ? 'Nothing has gone out yet.'
+      : 'No sent applications match this search.';
+  }
+
+  /* ---------- band 3: where it stands ---------- */
+
+  function renderRates() {
+    // Draft rows are excluded from every figure here: an unsent package is not a
+    // submission, and counting it as one would flatter the rate.
+    var submitted = sent();
+    var active = submitted.filter(function (r) { return ACTIVE.indexOf(r.status) !== -1; }).length;
+    var interviews = submitted.filter(function (r) {
+      return REACHED_INTERVIEW.indexOf(r.status) !== -1;
+    }).length;
+    var rate = submitted.length ? Math.round((interviews / submitted.length) * 100) + '%' : '—';
+
+    // Four zeroes and a dash say nothing the history band's own empty copy has not
+    // already said, so the whole band stands down until there is a rate to report.
+    el('rates-band').hidden = submitted.length === 0;
+    if (submitted.length === 0) return;
+
+    var items = [
+      { n: submitted.length, l: 'Sent' },
+      { n: active, l: 'Still live' },
+      { n: interviews, l: 'Reached interview' },
+      { n: rate, l: 'Interview rate' },
+    ];
+    var box = el('rates');
+    box.textContent = '';
+    items.forEach(function (s) {
+      var d = elem('div');
+      d.appendChild(elem('div', 'rate-n', String(s.n)));
+      d.appendChild(elem('div', 'rate-l', s.l));
+      box.appendChild(d);
     });
   }
 

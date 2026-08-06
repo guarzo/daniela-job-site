@@ -1,150 +1,968 @@
-:root {
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
-  --accent: #1d4ed8;
-  /* Status palette — mirrors /html-report. Draft is deliberately muted so an
-     unsent package never reads as progress. */
-  --s-drafted: #94a3b8;
-  --s-applied: #3b82f6;
-  --s-interview: #8b5cf6;
-  --s-offer: #10b981;
-  --s-hired: #059669;
-  --s-rejected: #ef4444;
-  --s-no_response: #cbd5e1;
-  --s-withdrawn: #a1a1aa;
+/* Chigüire — the Screenprint Ledger.
+ *
+ * A record kept on warm bone paper and printed in four saturated inks sampled from
+ * the artwork. Flat by construction: no gradients, no shadows, no simulated depth,
+ * no rounded corners. See DESIGN.md at the repo root for the system and its rules.
+ *
+ * Every status colour below is verified at WCAG 2.2 AA against the *sunk* ground
+ * (--bg-sunk), not the page ground, because rows with pending feedback sit on the
+ * sunk ground and that is the stricter case. Passing there implies passing on the
+ * page ground too, since paper is lighter than sunk and raised is lighter than night.
+ */
+
+/* ---------- fonts ---------- */
+/* Self-hosted, woff2 only, no third-party CDN: this is a private dashboard and it
+   should not phone anywhere it does not have to. */
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/space-grotesk-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/space-grotesk-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/space-grotesk-600-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/space-grotesk-600-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/space-grotesk-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('fonts/space-grotesk-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-500-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('fonts/jetbrains-mono-500-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-* { box-sizing: border-box; }
+/* ---------- tokens ---------- */
+
+:root {
+  /* Inks sampled from the artwork. Primitives — don't reference these in rules. */
+  --paper: #f6f4eb;
+  --paper-sunk: #edeade;
+  --paper-ink: #101934;
+  --paper-muted: #525a6f;
+  --paper-rule: #d7d4ca;
+  --night: #080f24;
+  --night-raised: #111d47;
+  --night-ink: #eae8df;
+  --night-muted: #9ea4b5;
+  --night-rule: #28324d;
+  --acid: #d8e400;
+
+  /* Semantic layer. Only these get redefined for the night theme. */
+  --bg: var(--paper);
+  --bg-sunk: var(--paper-sunk);
+  --fg: var(--paper-ink);
+  --fg-muted: var(--paper-muted);
+  --line: var(--paper-rule);
+
+  --st-drafted: #646975;
+  --st-applied: #006ea8;
+  --st-interview: #a93c9b;
+  --st-interview_only: #a93c9b;
+  --st-rejected: #cd0d5b;
+  --st-no_response: #666970;
+  --st-withdrawn: #66696f;
+  /* Offer, Offer declined and Hired are acid fill with ink on top — 12.40:1 — and
+     are the only three states that carry acid. See the Acid Reserve Rule. */
+
+  /* 4pt spacing scale. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-24: 96px;
+
+  /* Five type sizes, ratios 1.75 / 1.52 / 1.31 / 1.33. */
+  --t-display: 3.5rem;
+  --t-headline: 2rem;
+  --t-title: 1.3125rem;
+  --t-body: 1rem;
+  --t-label: 0.75rem;
+
+  --grotesk: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quint */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--night);
+    --bg-sunk: var(--night-raised);
+    --fg: var(--night-ink);
+    --fg-muted: var(--night-muted);
+    --line: var(--night-rule);
+
+    --st-drafted: #858894;
+    --st-applied: #2090cb;
+    --st-interview: #cb5ebd;
+    --st-interview_only: #cb5ebd;
+    --st-rejected: #f4427a;
+    --st-no_response: #85888f;
+    --st-withdrawn: #85888e;
+  }
+}
+
+/* ---------- base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+/* The narrow breakpoint re-declares `display` on tables, rows and cells, which would
+   otherwise beat the UA stylesheet's [hidden] rule. */
+[hidden] {
+  display: none !important;
+}
 
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
-  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--fg);
+  font-family: var(--grotesk);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
-.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-.centered { text-align: center; }
-.muted { color: var(--muted); }
+/* Light text on a dark ground blooms and reads heavier than it measures. Open the
+   leading and tracking slightly rather than reaching for a lighter weight. */
+@media (prefers-color-scheme: dark) {
+  body {
+    line-height: 1.62;
+    letter-spacing: 0.008em;
+  }
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-weight: 700;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+}
+
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+/* Zero specificity so component classes (.masthead, .loading) can override a single
+   edge without having to restate the whole shorthand at every breakpoint. */
+:where(.wrap) {
+  padding: var(--s-8) var(--s-6) var(--s-24);
+}
+
 .sr-only {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
-.card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 28px;
+.skip {
+  position: absolute;
+  left: var(--s-3);
+  top: -4rem;
+  z-index: 10;
+  background: var(--fg);
+  color: var(--bg);
+  padding: var(--s-2) var(--s-3);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 120ms var(--ease);
+}
+.skip:focus {
+  top: var(--s-3);
 }
 
-.auth { max-width: 420px; margin: 12vh auto 0; }
-.auth h1 { margin: 0 0 8px; font-size: 20px; }
-.auth form { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
-
-input[type="email"], input[type="search"] {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 15px;
-  background: #fff;
-  color: var(--ink);
-}
-input:focus-visible, button:focus-visible {
-  outline: 2px solid var(--accent);
+:where(a, button, input, textarea, summary):focus-visible {
+  outline: 2px solid var(--fg);
   outline-offset: 2px;
 }
 
+.muted {
+  color: var(--fg-muted);
+}
+
+/* ---------- type roles ---------- */
+
+.t-label {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* Mono runs optically larger than the grotesk at the same nominal size. The 0.94
+   step is an optical size-match, not a sixth step in the scale. It is declared at
+   each site rather than through a shared class because the three that use it
+   (td.num, .cell-date, .noteform .count) each pair it with different colour and
+   alignment, and a utility class would have been overridden at all three. */
+
+/* ---------- controls ---------- */
+
 button {
   font: inherit;
+  color: inherit;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 0;
 }
-#auth-submit {
-  padding: 10px 12px;
+
+.btn {
+  background: var(--fg);
+  color: var(--bg);
   border: 0;
-  background: var(--accent);
-  color: #fff;
+  padding: var(--s-3) var(--s-4);
+  font-weight: 600;
+  transition: background-color 160ms var(--ease);
+}
+.btn:hover {
+  background: var(--fg-muted);
+}
+.btn[disabled] {
+  background: var(--fg-muted);
+  cursor: default;
+}
+
+/* Text-level action. Underlined, so it is never a colour-only affordance. */
+.act {
+  position: relative;
+  background: none;
+  border: 0;
+  padding: var(--s-1) 0;
+  margin: 0;
+  font-size: 0.9375rem;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.act::before {
+  /* Keeps the visible mark small while the hit target stays comfortable. Vertical
+     growth is capped at half the 4px gap between stacked actions: at the -12px it
+     started out as, "CV" and "Cover letter" overlapped by 20px and a tap just under
+     CV opened the cover letter instead. 35 x 35 still clears the 24px minimum. */
+  content: '';
+  position: absolute;
+  inset: -2px -8px;
+}
+.act:hover {
+  text-decoration-thickness: 2px;
+}
+.act[disabled] {
+  color: var(--fg-muted);
+  text-decoration: none;
+  cursor: default;
+}
+.act[disabled]::before {
+  content: none;
+}
+
+input[type='email'],
+input[type='search'],
+textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--fg-muted);
+  border-radius: 0;
+  padding: var(--s-2) var(--s-3);
+}
+textarea {
+  font-size: 0.9375rem;
+  resize: vertical;
+}
+::placeholder {
+  color: var(--fg-muted);
+  opacity: 1;
+}
+
+.chips {
+  display: flex;
+  gap: var(--s-1);
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.04em;
+  background: transparent;
+  color: var(--fg-muted);
+  border: 1px solid var(--line);
+  padding: var(--s-1) var(--s-2);
+  transition: color 140ms var(--ease), border-color 140ms var(--ease);
+}
+.chip:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+.chip[aria-pressed='true'] {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+/* ---------- masthead ---------- */
+
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--s-4);
+  border-bottom: 2px solid var(--fg);
+  margin-bottom: var(--s-12);
+}
+.masthead h1 {
+  font-size: var(--t-headline);
+  letter-spacing: -0.02em;
+}
+.masthead-right {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-4);
+  font-size: 0.9375rem;
+}
+
+/* ---------- bands ---------- */
+
+.band {
+  margin-bottom: var(--s-16);
+}
+/* The footer brings its own top margin; stacking both left a void the height of a
+   table row between the last figure and the rule. */
+.band:last-of-type {
+  margin-bottom: 0;
+}
+
+.band-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-2);
+}
+.band-head h2 {
+  font-size: var(--t-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.band-count {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+.band-note {
+  color: var(--fg-muted);
+  font-size: 0.9375rem;
+  max-width: 68ch;
+  margin-bottom: var(--s-4);
+}
+
+.band-tools {
+  display: flex;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--s-4);
+}
+.band-tools input[type='search'] {
+  max-width: 22rem;
+}
+
+/* ---------- ledger ---------- */
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.ledger thead th {
+  /* No fill here. --bg-sunk is the pending-row signal, and a header painted the same
+     value made the header and the first pending row read as one block. The mono
+     uppercase label and the rule under it carry the header on their own. */
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.ledger td {
+  padding: var(--s-3);
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.ledger tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.num {
+  text-align: right;
+}
+td.num {
+  font-family: var(--mono);
+  font-size: 0.94em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cell-company {
   font-weight: 600;
 }
-#auth-submit[disabled] { opacity: 0.6; cursor: default; }
-
-.link-btn {
-  border: 0; background: none; color: var(--accent); padding: 0; text-decoration: underline;
+.cell-date {
+  font-family: var(--mono);
+  font-size: 0.94em;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+  white-space: nowrap;
 }
 
-.msg { min-height: 1.4em; margin: 14px 0 0; font-size: 14px; }
-.msg.err { color: #b91c1c; }
-.msg.ok { color: #047857; }
-
-.topbar {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+/* Row tracking on hover, expressed as a rule rather than a fill. Seven columns at
+   full width is a long way for the eye to travel, so the cue earns its place — but
+   it cannot be a background: --bg-sunk is the pending signal, and tinting the row
+   under the pointer made every settled record look pending for as long as the mouse
+   sat on it. Darkening the hairline tracks just as well and stays printerly. */
+@media (hover: hover) {
+  .ledger tbody tr:hover > td {
+    border-bottom-color: var(--fg-muted);
+  }
 }
-.topbar h1 { margin: 0; font-size: 20px; }
-.topbar-right { display: flex; gap: 12px; align-items: baseline; font-size: 14px; }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
-.stat {
-  background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+/* A row whose feedback has not been picked up upstream yet. Tone plus a 1px edge.
+   The status badge is deliberately untouched: the repo owns status, and the UI
+   must not imply the dashboard changed it. */
+.ledger tr.pending > td {
+  background: var(--bg-sunk);
 }
-.stat .n { font-size: 24px; font-weight: 700; }
-.stat .l { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.ledger tr.pending > td:first-child {
+  box-shadow: inset 1px 0 0 var(--fg-muted);
+}
 
-.filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 22px 0 12px; }
-.filters input[type="search"] { max-width: 320px; }
-.chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.chip {
-  border: 1px solid var(--line); background: #fff; color: var(--muted);
-  padding: 5px 10px; font-size: 13px;
-}
-.chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
-
-.tablewrap {
-  background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto;
-}
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
-tbody tr:last-child td { border-bottom: 0; }
-.num { text-align: right; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* ---------- status badges ---------- */
 
 .badge {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; color: #fff; white-space: nowrap;
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 2px var(--s-2);
+  white-space: nowrap;
+  border: 1px solid transparent;
 }
 
-.doc {
-  display: inline-block; margin-right: 8px; color: var(--accent);
-  background: none; border: 0; padding: 0; text-decoration: underline; font-size: 14px;
+/* Outline: unresolved, or resolved against her. */
+.badge-outline {
+  color: var(--badge);
+  border-color: var(--badge);
 }
-.doc[disabled] { color: var(--muted); text-decoration: none; cursor: default; }
+/* Dashed edge marks the two states that were never really underway: a draft that
+   has not gone out, and an application that never got an answer. */
+.badge-dashed {
+  border-style: dashed;
+}
 
-/* Feedback column. Signal chips are muted and outlined rather than solid, so they
-   read as "recorded, awaiting pickup" and are never mistaken for a status badge. */
-.sig { display: inline-block; margin: 0 6px 4px 0; padding: 2px 8px; border-radius: 999px;
-  font-size: 12px; font-weight: 600; border: 1px solid var(--line); color: var(--muted); }
-.sig.hold { border-color: #f59e0b; color: #b45309; }
-.noteform { display: block; margin-top: 6px; }
+/* Fill: an offer exists. Acid is a ground, never a foreground. */
+.badge-acid {
+  background: var(--acid);
+  color: var(--paper-ink);
+  border-color: var(--acid);
+}
+/* Hired is the only state that earns a second mark. */
+.badge-ring {
+  outline: 1px solid var(--fg);
+  outline-offset: 2px;
+}
+/* Struck through are the two she closed herself, rather than the ones that closed
+   on her. */
+.badge-struck {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+/* ---------- documents ---------- */
+
+.docs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
+}
+/* Document labels are two words at most; wrapping them turns a five-row table into
+   a ten-row one. Let the column claim the width instead. */
+.docs .act {
+  white-space: nowrap;
+}
+
+/* ---------- note disclosure ---------- */
+
+.disc {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  background: none;
+  border: 0;
+  padding: var(--s-1) 0;
+  margin-top: var(--s-1);
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.disc:hover {
+  color: var(--fg);
+}
+.disc::after {
+  content: '+';
+}
+.disc[aria-expanded='true']::after {
+  content: '\2212'; /* minus */
+}
+
+.noterow > td {
+  /* No fill: --bg-sunk means "pending" and nothing else. A note on a settled record
+     is bound to that record by the suppressed rule below and its own hairline. A
+     note on a pending record does still take the fill, from the .pending rule. */
+  padding: var(--s-3) var(--s-3);
+  border-top: 1px solid var(--line);
+}
+/* The disclosure row belongs to the record above it, so the record's closing rule
+   moves down to the disclosure and only the note's own hairline separates them. */
+.ledger tbody tr:has(+ .noterow) > td {
+  border-bottom: 0;
+}
+/* Same reason as .foot: the hairline belongs to the record and runs its full width,
+   so it sits on the cell. Only the note text is held at measure. */
+.noterow > td > p {
+  margin: 0;
+}
+.noterow p {
+  max-width: 70ch;
+  font-size: 0.9375rem;
+  white-space: pre-wrap;
+}
+
+/* ---------- feedback ---------- */
+
+.sigs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin-bottom: var(--s-2);
+}
+
+/* Signal chips are outlined and neutral so they can never be mistaken for status. */
+.sig {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+  border: 1px solid var(--line);
+  padding: 1px var(--s-2);
+  white-space: nowrap;
+}
+.sig-hold {
+  border-color: var(--fg-muted);
+  color: var(--fg);
+}
+/* Nothing here is retractable, so a superseded signal is demoted, not removed. */
+.sig-old {
+  opacity: 0.55;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.sigbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+}
+
+.noteform {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms var(--ease), margin-top 200ms var(--ease);
+}
+/* The margin is part of the collapse. Left on permanently it would pad every row in
+   the table by 12px for a form that is almost never open. */
+.noteform[data-open='true'] {
+  grid-template-rows: 1fr;
+  margin-top: var(--s-3);
+}
+.noteform > div {
+  overflow: hidden;
+  min-width: 0;
+  /* A 0fr grid track clips the form but leaves the textarea and its buttons in the
+     tab order and the accessibility tree. With twelve rows on screen that is three
+     dozen stops through controls nobody can see. visibility takes them out, and
+     unlike display it still animates. */
+  visibility: hidden;
+  transition: visibility 0s linear 200ms;
+}
+.noteform[data-open='true'] > div {
+  visibility: visible;
+  /* Visible immediately on open, delayed to the end of the collapse on close. */
+  transition-delay: 0s;
+}
 .noteform textarea {
-  width: 100%; min-height: 62px; font: inherit; font-size: 13px; padding: 6px 8px;
-  border: 1px solid var(--line); border-radius: 8px; background: transparent; color: inherit;
-  box-sizing: border-box; resize: vertical;
+  min-height: 4.5rem;
 }
-.noteform .row { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
-.noteform .count { font-size: 12px; color: var(--muted); margin-left: auto; }
+.noteform .row {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+  margin-top: var(--s-2);
+}
+.noteform .count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+.noteform .count[data-over='true'] {
+  color: var(--st-rejected);
+  font-weight: 500;
+}
 
-.foot { margin-top: 18px; font-size: 13px; }
+/* ---------- rates ---------- */
 
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #0b1120; --card: #111827; --ink: #e5e7eb; --muted: #94a3b8; --line: #1f2937; --accent: #60a5fa; }
-  input[type="email"], input[type="search"], .chip { background: #0b1120; color: var(--ink); }
-  .chip[aria-pressed="true"] { background: var(--ink); color: #0b1120; }
-  #auth-submit { color: #0b1120; }
-  .sig.hold { color: #fbbf24; }
+.rates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
+}
+.rate-n {
+  font-family: var(--mono);
+  font-size: var(--t-title);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.rate-l {
+  font-family: var(--mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* ---------- messages ---------- */
+
+.msg {
+  margin-top: var(--s-4);
+  font-size: 0.9375rem;
+  min-height: 1.5em;
+  max-width: 70ch;
+}
+/* Colour is the second carrier here, never the only one: every error string starts
+   by naming what failed ("Could not open that file: …"), so the message reads the
+   same to someone who cannot see the hue. Success messages take no colour at all —
+   the copy carries them, and tinting routine confirmations green would spend a
+   fifth ink the system does not have. */
+.msg-err {
+  color: var(--st-rejected);
+}
+
+.empty {
+  padding: var(--s-8) 0;
+  color: var(--fg-muted);
+  max-width: 62ch;
+}
+
+/* ---------- sign in ---------- */
+
+/* The one screen in the app with nothing to do and no data to protect, so it is the
+   one screen that gets to be the poster. Everything past sign-in is a document. */
+.auth {
+  max-width: 62rem;
+  margin: 0 auto;
+  /* svh, not vh: on mobile the address bar collapse would otherwise shift the
+     whole composition mid-scroll. */
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 22rem);
+  gap: var(--s-16);
+  align-items: center;
+  align-content: center;
+}
+.auth-mark {
+  /* Decorative: the heading beside it already names the app. */
+  display: block;
+  width: 100%;
+  max-width: 30rem;
+  height: auto;
+  margin-inline: auto;
+}
+.auth h1 {
+  font-size: var(--t-display);
+  letter-spacing: -0.035em;
+  margin-bottom: var(--s-3);
+}
+.auth p {
+  color: var(--fg-muted);
+  max-width: 40ch;
+}
+.auth form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-top: var(--s-6);
+}
+
+.loading {
+  padding: 20vh 0;
+  text-align: center;
+  color: var(--fg-muted);
+}
+
+.foot {
+  margin-top: var(--s-12);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
+  color: var(--fg-muted);
+  font-size: 0.9375rem;
+  /* The rule runs the full width of the page like every other rule; only the text
+     is held at measure. A max-width on .foot itself would have cropped the border
+     to the length of the paragraph and left it hanging mid-page. */
+  display: grid;
+  grid-template-columns: minmax(0, 72ch);
+  padding-bottom: max(var(--s-4), env(safe-area-inset-bottom));
+}
+
+/* ---------- narrow ---------- */
+
+/* Below this the table stops being a table and becomes a stack of records. Nothing
+   is dropped: the column labels move out of the header row and onto each cell. */
+@media (max-width: 899px) {
+  :where(.wrap) {
+    padding: var(--s-6) var(--s-4) var(--s-16);
+  }
+  .auth {
+    grid-template-columns: 1fr;
+    gap: var(--s-8);
+    align-content: center;
+  }
+  .auth-mark {
+    max-width: 19rem;
+  }
+  .auth h1 {
+    font-size: var(--t-headline);
+  }
+  .band {
+    margin-bottom: var(--s-12);
+  }
+
+  .ledger,
+  .ledger tbody,
+  .ledger tr,
+  .ledger td {
+    display: block;
+    width: auto;
+  }
+  .ledger thead {
+    display: none;
+  }
+  .ledger tbody tr {
+    border-bottom: 1px solid var(--line);
+    padding: var(--s-4) 0;
+  }
+  .ledger tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .ledger td {
+    border-bottom: 0;
+    padding: var(--s-1) 0;
+  }
+  /* Label left, value right — a definition list, not a stack. Stacking the label
+     above every value doubles the height of a record for no added clarity. */
+  .ledger td[data-label] {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: var(--s-3);
+    align-items: baseline;
+    /* Without this, a grid item is stretched to the column width and a status badge
+       turns into a full-width block. */
+    justify-items: start;
+  }
+  /* Grid items default to min-content width, which lets a long signal chip push the
+     whole page sideways. */
+  .ledger td[data-label] > * {
+    min-width: 0;
+  }
+  /* The chips are short enough to hold one line on a laptop and too long for one on
+     a phone. Nowrap is a desktop nicety, not a rule. */
+  .sig {
+    white-space: normal;
+  }
+  .ledger td[data-label]::before {
+    content: attr(data-label);
+    font-family: var(--mono);
+    font-size: var(--t-label);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--fg-muted);
+  }
+  .ledger td.cell-company {
+    display: block;
+    font-size: var(--t-title);
+    margin-bottom: var(--s-1);
+  }
+  .ledger td.cell-company::before {
+    content: none;
+  }
+  td.num {
+    text-align: left;
+  }
+  .ledger tr.pending > td:first-child {
+    box-shadow: none;
+  }
+  .ledger tr.pending {
+    box-shadow: inset 1px 0 0 var(--fg-muted);
+    padding-left: var(--s-3);
+  }
+  .noterow > td {
+    padding: var(--s-3) 0 0;
+  }
+  .ledger tbody tr:has(+ .noterow) {
+    border-bottom: 0;
+  }
+  .noterow {
+    padding-top: 0;
+  }
+  .rates {
+    gap: var(--s-6);
+  }
+}
+
+@media (pointer: coarse) {
+  .chip {
+    padding: var(--s-2) var(--s-3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }
