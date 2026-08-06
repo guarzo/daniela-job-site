@@ -9,7 +9,12 @@
   // ./public is a subdirectory on purpose. wrangler uploads everything under the
   // assets directory, so pointing it at the repo root would publish this config and
   // the README too. Anything outside ./public is structurally unpublishable.
-  "name": "daniela-job-site",
+  //
+  // The name is also the public hostname (<name>.workers.dev), so it carries no
+  // personal name. Changing it creates a *new* Worker rather than renaming this one,
+  // and the new origin must be registered in Supabase before magic links will return
+  // to it.
+  "name": "guado-jobs",
   "compatibility_date": "2026-08-06",
   "assets": {
     "directory": "./public"
