@@ -4,19 +4,54 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
     <!-- Inline so there is no favicon request to 404 on, and no extra file to serve. -->
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%231d4ed8'/%3E%3C/svg%3E" />
-    <title>Job Search Dashboard</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230c1854'/%3E%3Crect x='3' y='3' width='10' height='10' fill='%23d8e400'/%3E%3C/svg%3E"
+    />
+    <title>Chigüire</title>
+    <!-- The two faces the dashboard renders first: body text and the ledger data. The
+         remaining weights load normally.
+
+         The console will warn that the mono preload went unused. That is correct and
+         intended: the sign-in screen has no figures on it, so mono 400 is genuinely
+         idle there. Sign-in and dashboard are the same document, so by the time the
+         magic link lands the face is already warm, which is when the ledger needs it.
+         One idle request on a screen that fetches almost nothing buys that. -->
+    <link
+      rel="preload"
+      href="fonts/space-grotesk-400-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="fonts/jetbrains-mono-400-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="wrap">
-      <!-- Sign-in view -->
-      <section id="view-auth" class="card auth" hidden>
-        <h1>Job Search Dashboard</h1>
-        <p class="muted">
-          Enter your email and we'll send you a sign-in link. No password to remember.
-        </p>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <!-- Sign-in view -->
+    <main id="view-auth" class="wrap auth" hidden>
+      <!-- Purely decorative, hence the empty alt: the h1 beside it carries the name. -->
+      <img
+        class="auth-mark"
+        src="img/chiguire.webp"
+        alt=""
+        width="680"
+        height="625"
+        decoding="async"
+      />
+      <div>
+        <h1>Chigüire</h1>
+        <p>Enter your email and we'll send you a sign-in link. No password to remember.</p>
         <form id="auth-form" autocomplete="on">
           <label class="sr-only" for="email">Email address</label>
           <input
@@ -28,60 +63,110 @@
             placeholder="you@example.com"
             required
           />
-          <button id="auth-submit" type="submit">Email me a sign-in link</button>
+          <button id="auth-submit" class="btn" type="submit">Email me a sign-in link</button>
         </form>
         <p id="auth-msg" class="msg" role="status" aria-live="polite"></p>
-      </section>
+      </div>
+    </main>
 
-      <!-- Loading view -->
-      <section id="view-loading" class="card centered" hidden>
-        <p class="muted">Loading…</p>
-      </section>
+    <!-- Loading view -->
+    <div id="view-loading" class="wrap loading" hidden>
+      <p class="t-label">Loading</p>
+    </div>
 
-      <!-- Dashboard view -->
-      <section id="view-app" hidden>
-        <header class="topbar">
-          <h1>Job Search Dashboard</h1>
-          <div class="topbar-right">
-            <span id="who" class="muted"></span>
-            <button id="signout" class="link-btn" type="button">Sign out</button>
-          </div>
-        </header>
-
-        <div id="stats" class="stats"></div>
-
-        <div class="filters">
-          <label class="sr-only" for="q">Search</label>
-          <input id="q" type="search" placeholder="Search company or role…" />
-          <div id="status-filters" class="chips"></div>
+    <!-- Dashboard view -->
+    <div id="view-app" hidden>
+      <header class="wrap masthead">
+        <h1>Chigüire</h1>
+        <div class="masthead-right">
+          <span id="who" class="muted"></span>
+          <button id="signout" class="act" type="button">Sign out</button>
         </div>
+      </header>
 
-        <div class="tablewrap">
-          <table id="apps">
+      <main id="main" class="wrap">
+        <!-- Band 1: what is waiting on her. -->
+        <section class="band" id="queue-band" aria-labelledby="queue-h">
+          <div class="band-head">
+            <h2 id="queue-h">Ready to send</h2>
+            <span id="queue-count" class="band-count"></span>
+          </div>
+          <p class="band-note">
+            Drafted packages, best fit first. Read the documents, then mark it sent or put
+            it on hold.
+          </p>
+          <table class="ledger" id="queue">
             <thead>
               <tr>
-                <th>Company</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th class="num">Fit</th>
-                <th>Documents</th>
-                <th>Feedback</th>
+                <th scope="col">Company</th>
+                <th scope="col">Role</th>
+                <th scope="col" class="num">Fit</th>
+                <th scope="col">Documents</th>
+                <th scope="col">Feedback</th>
               </tr>
             </thead>
-            <tbody id="apps-body"></tbody>
+            <tbody id="queue-body"></tbody>
           </table>
-          <p id="empty" class="muted centered" hidden>No applications match this filter.</p>
-        </div>
+          <p id="queue-empty" class="empty" hidden>
+            Nothing drafted right now. New packages show up here as they're built.
+          </p>
+        </section>
+
+        <!-- Band 2: what has already gone out. -->
+        <section class="band" id="history-band" aria-labelledby="history-h">
+          <div class="band-head">
+            <h2 id="history-h">Out in the world</h2>
+            <span id="history-count" class="band-count"></span>
+          </div>
+          <p class="band-note">Everything sent, most recent first.</p>
+
+          <div class="band-tools" id="history-tools">
+            <label class="sr-only" for="q">Search company or role</label>
+            <input id="q" type="search" placeholder="Search company or role…" />
+            <div
+              id="status-filters"
+              class="chips"
+              role="group"
+              aria-label="Filter by status"
+            ></div>
+          </div>
+
+          <table class="ledger" id="history">
+            <thead>
+              <tr>
+                <th scope="col">Company</th>
+                <th scope="col">Role</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last moved</th>
+                <th scope="col" class="num">Fit</th>
+                <th scope="col">Documents</th>
+                <th scope="col">Feedback</th>
+              </tr>
+            </thead>
+            <tbody id="history-body"></tbody>
+          </table>
+          <p id="history-empty" class="empty" hidden></p>
+        </section>
+
+        <!-- Band 3: the shape of the search. Drafts are excluded from every figure
+             here, which is exactly why it sits under the history band and not in
+             the page header. -->
+        <section class="band" id="rates-band" aria-labelledby="rates-h">
+          <div class="band-head">
+            <h2 id="rates-h">Where it stands</h2>
+          </div>
+          <div id="rates" class="rates"></div>
+        </section>
 
         <p id="app-msg" class="msg" role="status" aria-live="polite"></p>
-        <footer class="foot muted">
-          Documents open as short-lived private links. Nothing here is public.
-          Marking something sent records a note for review — the status here updates
-          once that has been picked up.
+
+        <footer class="foot">
+          Documents open as short-lived private links. Nothing here is public. Marking
+          something sent records a note for review; the status updates once that has been
+          picked up.
         </footer>
-      </section>
-    </main>
+      </main>
+    </div>
 
     <script src="vendor/supabase.js"></script>
     <script src="config.js"></script>
