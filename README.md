@@ -41,8 +41,12 @@ python3 -m http.server 8788        # from the repository root
 # http://localhost:8788/dev/harness.html
 ```
 
-Query flags: `?empty`, `?error`, `?offline`, `?auth` for the degraded states. Run this
-before claiming any visual change is done.
+Query flags: `?empty`, `?error`, `?offline`, `?auth` for the degraded states, and
+`?today` for the everyday shape — every record drafted, every record carrying a note,
+roles long enough to wrap, and an empty history band. The default fixtures stress the
+layout by carrying one of everything; `?today` reproduces its ordinary proportions,
+which turned out to be the harder case and the one the stress set was hiding. Check
+both before claiming any visual change is done.
 
 ## The write path
 

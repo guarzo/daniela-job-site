@@ -115,18 +115,12 @@
             Drafted packages, best fit first. Read the documents, then mark it sent or put
             it on hold.
           </p>
-          <table class="ledger" id="queue">
-            <thead>
-              <tr>
-                <th scope="col">Company</th>
-                <th scope="col">Role</th>
-                <th scope="col" class="num">Fit</th>
-                <th scope="col">Documents</th>
-                <th scope="col">Feedback</th>
-              </tr>
-            </thead>
-            <tbody id="queue-body"></tbody>
-          </table>
+          <!-- A list, not a table. Five drafted packages are five decisions taken one at a
+               time, not rows compared across columns, and as a table the two columns that
+               read the same on every record (documents, actions) took a third of the width
+               while the company and role wrapped. The history band below stays a table,
+               where comparing across records is the whole point. -->
+          <ol class="queue-list" id="queue-list"></ol>
           <p id="queue-empty" class="empty" hidden>
             Nothing drafted right now. New packages show up here as they're built.
           </p>
@@ -138,7 +132,7 @@
             <h2 id="history-h">Out in the world</h2>
             <span id="history-count" class="band-count"></span>
           </div>
-          <p class="band-note">Everything sent, most recent first.</p>
+          <p class="band-note" id="history-note">Everything sent, most recent first.</p>
 
           <div class="band-tools" id="history-tools">
             <label class="sr-only" for="q">Search company or role</label>

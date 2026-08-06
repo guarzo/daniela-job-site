@@ -81,7 +81,10 @@ they replaced.
 ### Secondary
 
 - **Cyan** (`#006ea8` light, `#2090cb` night): applications in flight. Sent, waiting,
-  alive.
+  alive. It carries the fit score in the queue too, exposed as `--fit`. The queue holds
+  only drafts and so has no status badges, and in the history band fit is a grey
+  footnote, so the two readings never appear in the same band. Reusing the value rather
+  than adding a lighter cyan keeps the Four Inks Rule literal.
 - **Violet** (`#a93c9b` light, `#cb5ebd` night): interviews, reached or in progress.
   Escalated from cyan, short of an outcome.
 
@@ -159,6 +162,13 @@ recessed tone. Three places used it that way during the build and all three had 
 undone, because a header painted the same value as the first pending row made the two
 read as one block. If a surface needs to separate from its background and it is not
 pending, separate it with a rule or with spacing.
+
+The rule bounds what the value _means_, not how loudly pending is drawn. A ledger row
+is 40px and takes the fill as a band; a queue record is 130px and takes it as a slab,
+loud enough that two pending records turned the whole queue into a selection state. So
+the queue marks pending with the 1px inset edge and the chip that says "awaiting sync"
+in words, and leaves the fill to the ledger. A pending record is one she has already
+dealt with; it should recede, not shout.
 
 **The Never Alone Rule.** No status is distinguished by color alone. Every badge
 carries its label spelled out, and fill / dashed / strikethrough / ring each encode one
@@ -252,8 +262,8 @@ has drifted back toward the shell this replaces.
 
 ## 5. Components
 
-Direction only. Exact tokens land after the redesign, on the next `$impeccable
-document` pass.
+Everything below is built and shipped. `public/styles.css` is the source of truth for
+exact values; this section records the reasoning that produced them.
 
 ### Buttons
 
@@ -285,21 +295,45 @@ affordance.
 
 ### Table
 
-The signature component, and the one that carries almost all of the information in this
-product. Bone ground, an unfilled header row over a single rule, hairline rules between
-records, mono figures, status badges per the table in section 2. A record with a pending
-signal takes the sunk ground and a 1px inset left mark (`box-shadow: inset 1px 0 0`,
-not a border, per the side-stripe ban). Long notes live in a disclosure row bound to
-their record: the record's closing rule moves down onto the disclosure so the two read
-as one block.
+The history band, and the one component that carries a real comparison. Bone ground, an
+unfilled header row over a single rule, hairline rules between records, mono figures,
+status badges per the table in section 2. A record with a pending signal takes the sunk
+ground and a 1px inset left mark (`box-shadow: inset 1px 0 0`, not a border, per the
+side-stripe ban). Long notes live in a disclosure row bound to their record: the
+record's closing rule moves down onto the disclosure so the two read as one block.
 
-**The 979px breakpoint.** Below 980px both tables abandon columns entirely and each
+**The 979px breakpoint.** Below 980px the table abandons columns entirely and each
 record becomes a stacked block, with `data-label` on every cell rendering the column
-name through `::before`. The break is well above the obvious 719 because the history
-table has seven columns and needs 923px to lay out with its documents and actions each
-on one line. The breakpoint follows the widest table, not the viewport category, and it
-was measured against `dev/fixtures.js`, which carries the longest company and role
-strings deliberately.
+name through `::before`. The break is well above the obvious 719 because the table has
+seven columns and needs 923px to lay out with its documents and actions each on one
+line. The breakpoint follows the table, not the viewport category, and it was measured
+against `dev/fixtures.js`, which carries the longest company and role strings
+deliberately.
+
+### Queue records
+
+The queue is a list, not a table, and this is the screen she is actually on. Five
+drafted packages are five decisions taken one at a time, not rows compared across
+columns. As a table the two columns that read identically on every record — documents
+and actions — took 406 of the 1132px available while the company and role wrapped
+inside 248px and 417px: a third of the width spent on repetition, with the information
+squeezed into what was left.
+
+Each record is one block: company and fit on the first line, role on the second,
+then a foot that runs documents and the note disclosure on the left and the actions on
+the right. Reading left to right is "what there is to read, then what to do about it",
+which is the order she works in. The right edge is shared by the fit figure and the
+actions, so both form a column she can hit without looking.
+
+**One primary per record.** `Mark sent` is the thing she opened the page to do, so it is
+the only filled control on the page: ink ground, paper label, no underline, per the
+button rule above. `Add note` and `Don't send` stay as text. Twenty-five identical
+underlines gave a destructive action exactly the weight of the primary one.
+
+Records hold a uniform height whether or not they carry a signal, because the feedback
+box lays its chips and its actions out in one row rather than stacking them. A record
+whose height changes when she acts on it is a record that moves the next one out from
+under the cursor.
 
 ### The Chigüire
 

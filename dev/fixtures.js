@@ -31,6 +31,19 @@ window.FIXTURES = {
     { id: 'b10', company: 'Karnak Freightways International Holdings', role: 'Senior Manager, Network Planning', status: 'applied', status_date: '2026-07-05', fit_rating: 70.4, notes: null, cv_object: 'cv/b10.pdf', cover_letter_object: 'cl/b10.pdf' },
   ],
 
+  /* The set above stresses the layout. This one reproduces its everyday shape, which
+   * turned out to be the harder case and the one the stress set was hiding: every row
+   * drafted, every row carrying a note, every role long enough to wrap, and nothing
+   * sent yet so the history band is empty. Companies and roles are invented; the
+   * proportions are what matter. Reached with ?today. */
+  today: [
+    { id: 't1', company: 'Nolan Transportation Group (NTG)', role: 'Vice President of Strategic Customer Accounts', status: 'drafted', status_date: '2026-08-05', fit_rating: 84.2, notes: 'Recruiter reached out first. Salary band published.', cv_object: 'cv/t1.pdf', cover_letter_object: 'cl/t1.pdf' },
+    { id: 't2', company: 'Teamviewly', role: 'Vice President, Global Enterprise Customer Success', status: 'drafted', status_date: '2026-08-05', fit_rating: 79.8, notes: 'Remote, but the team sits in Munich.', cv_object: 'cv/t2.pdf', cover_letter_object: 'cl/t2.pdf' },
+    { id: 't3', company: 'Verrata Mobility', role: 'Strategic Director of Account Management', status: 'drafted', status_date: '2026-08-04', fit_rating: 78.2, notes: 'Hybrid, two days on site.', cv_object: 'cv/t3.pdf', cover_letter_object: 'cl/t3.pdf' },
+    { id: 't4', company: 'FRS', role: 'Sr Director, Client Success - Strategic Accounts (North America)', status: 'drafted', status_date: '2026-08-04', fit_rating: 68.8, notes: 'Posting has been open eleven weeks.', cv_object: 'cv/t4.pdf', cover_letter_object: 'cl/t4.pdf' },
+    { id: 't5', company: 'Affirmis', role: 'Director, Platform Accounts Management', status: 'drafted', status_date: '2026-08-03', fit_rating: 66.9, notes: 'Second posting from them this month.', cv_object: 'cv/t5.pdf', cover_letter_object: 'cl/t5.pdf' },
+  ],
+
   /* Ordered created_at ascending, matching the real query. a1 carries an unprocessed
    * signal (pending ground). b2 carries a superseded pair: the hold came first, the
    * sent supersedes it. b1's signal is already picked up, so its row sits settled —

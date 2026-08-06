@@ -137,6 +137,12 @@
   --fg: var(--paper-ink);
   --fg-muted: var(--paper-muted);
   --line: var(--paper-rule);
+  /* Fit reuses the status cyan rather than adding a value: no fifth ink, and no second
+     shade of an existing one. The two never share a band — the queue has no status
+     badges (everything in it is drafted) and in the history band fit is a grey
+     footnote — so cyan reads as one ink doing two jobs in two places, not two inks.
+     Measured as text: 5.02:1 on paper, 5.36:1 on night. */
+  --fit: var(--st-applied);
 
   --st-drafted: #646975;
   --st-applied: #006ea8;
@@ -179,6 +185,7 @@
     --fg: var(--night-ink);
     --fg-muted: var(--night-muted);
     --line: var(--night-rule);
+    /* --fit follows --st-applied and needs no night value of its own. */
 
     --st-drafted: #858894;
     --st-applied: #2090cb;
@@ -391,6 +398,36 @@ button {
   content: none;
 }
 
+/* The primary action. Everything on a record was an underline of identical weight, so
+   the thing she opened the page to do looked exactly like the thing that withdraws it.
+   Filled ground, no underline: the affordance is the block, and it is the only filled
+   control on the page, so there is never a question which one is primary.
+   Ink on the page ground rather than acid — acid is reserved for Offer, Offer declined
+   and Hired, and an action she takes twenty times a day must not wear an outcome's
+   colour. Contrast is --bg on --fg, which is the body pairing inverted. */
+.act-primary {
+  padding: var(--s-1) var(--s-3);
+  background: var(--fg);
+  color: var(--bg);
+  text-decoration: none;
+  font-weight: 500;
+}
+.act-primary:hover,
+.act-primary:focus-visible {
+  text-decoration: none;
+  background: var(--fit);
+  color: var(--bg);
+}
+/* The hit-target expander is unnecessary once the control has real padding, and it
+   would extend the invisible target past the visible block. */
+.act-primary::before {
+  content: none;
+}
+.act-primary[disabled] {
+  background: var(--fg-muted);
+  color: var(--bg);
+}
+
 input[type='email'],
 input[type='search'],
 textarea {
@@ -520,6 +557,135 @@ textarea {
   max-width: 22rem;
 }
 
+/* ---------- queue records ---------- */
+
+/* The queue is a list, not a table. As a table, Documents and Feedback held the same
+   five words on every record and took 406 of the 1132px on offer, while Company wrapped
+   at 248px and Role wrapped at 417px: a third of the width spent on repetition, and the
+   information squeezed into what was left. A record is now one block with the full
+   measure to itself, which is also why the note no longer needs a line of its own. */
+.queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+}
+
+.rec {
+  padding: var(--s-3);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Company and fit on one line, the two things that decide whether this record is the
+   one to open. Fit is baseline-aligned with the company name rather than sitting in
+   its own column, so the pair reads as one statement. */
+.rec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin: 0;
+}
+
+.rec-co {
+  margin: 0;
+  font-size: var(--t-title);
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.rec-fit {
+  margin: 0;
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--t-title);
+  font-variant-numeric: tabular-nums;
+  color: var(--fit);
+}
+/* No score is not a low score. A muted dash says the number is missing without
+   putting a colour on it that would rank it against the records that have one. */
+.rec-fit-none {
+  color: var(--fg-muted);
+}
+
+.rec-role {
+  margin: var(--s-1) 0 0;
+  max-width: 62ch;
+  color: var(--fg-muted);
+}
+
+/* Documents and the note disclosure share a line with the actions: reading left to
+   right, what there is to read and then what to do about it. Giving each of those its
+   own line was what made every record four lines tall once every record carried a note.
+   Wraps as a whole, unlike its table ancestor — there is no column width to protect
+   here, only the measure. */
+.rec-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2) var(--s-6);
+  margin-top: var(--s-2);
+}
+
+.rec-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2) var(--s-4);
+}
+
+/* Takes the space the documents do not, and lays its own contents out in a row so a
+   record that carries a signal is still one line of foot. As a block it put the chips
+   on the documents line and pushed the actions onto a line of their own, right-aligned
+   under nothing — the three controls that matter left floating away from the record
+   they belong to, on exactly the records she had just finished acting on. */
+.rec .fb {
+  flex: 1 1 16rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--s-2) var(--s-3);
+}
+.rec .sigs {
+  margin-bottom: 0;
+}
+/* The form is the exception: it opens under the row, at the width of everything above
+   it rather than the width of the buttons that opened it. */
+.rec .noteform {
+  flex-basis: 100%;
+}
+.rec .sigbar {
+  justify-content: flex-end;
+}
+
+/* No fill, for the same reason the ledger's note row refuses one: --bg-sunk means
+   "pending" and nothing else, and a note is not a signal. The hairline and the indent
+   bind the panel to the record above it. */
+.rec-note {
+  margin-top: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+  max-width: 70ch;
+}
+.rec-note > p {
+  margin: 0;
+  font-size: 0.9375rem;
+  white-space: pre-wrap;
+}
+
+/* Pending is marked by the inset edge and by the chip, which says "awaiting sync" in
+   words. Not by the sunk ground: the ledger's rows are 40px and take that fill as a
+   band, but a record is 130px and takes it as a slab — on the stress fixtures two
+   pending records turned the queue into two glowing blocks, louder than anything else
+   on the page. A pending record is one she has already dealt with. It should recede. */
+.rec.pending {
+  box-shadow: inset 1px 0 0 var(--fg-muted);
+  padding-left: var(--s-3);
+}
+
 /* ---------- ledger ---------- */
 
 .ledger {
@@ -562,6 +728,14 @@ td.num {
   font-size: 0.94em;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+/* Reserves the width of ".0" after a whole score so the column lines up on the decimal
+   without printing a decimal on every whole number. Generated content rather than a
+   text node so it is never selected or copied; visibility:hidden rather than opacity
+   or colour so it cannot be revealed by a selection highlight. */
+.fit-pad::after {
+  content: '.0';
+  visibility: hidden;
 }
 
 .cell-company {
@@ -725,6 +899,13 @@ td.num {
   gap: var(--s-1);
   margin-bottom: var(--s-2);
 }
+/* The chip container is built on every row whether or not there are chips to put in
+   it, and an empty flex box still spends its bottom margin. That pushed the actions
+   8px below the company, role and fit text on the same line, on every row carrying no
+   signal — which, once there is a real queue in front of her, is most of them. */
+.sigs:empty {
+  display: none;
+}
 
 /* Signal chips are outlined and neutral so they can never be mistaken for status. */
 .sig {
@@ -755,6 +936,10 @@ td.num {
 .sigbar {
   display: flex;
   flex-wrap: nowrap;
+  /* Baseline rather than the flex default. Now that Mark sent is a filled block and
+     the other two are text, stretch would pull the text ones to the block's height and
+     centre their labels against it. Baseline puts all three labels on one line. */
+  align-items: baseline;
   gap: var(--s-3);
 }
 .sigbar .act {
@@ -847,9 +1032,18 @@ td.num {
 .msg-err {
   color: var(--st-rejected);
 }
+/* Full ink rather than inheriting the error red. Sitting inside a red sentence, a red
+   control reads as more of the same sentence; the one thing on the line she can act on
+   should be the one thing wearing the text colour. */
+.msg-retry {
+  color: var(--fg);
+}
 
+/* An empty band is one sentence, not a panel. At var(--s-8) top and bottom it opened a
+   90px block under a heading that had nothing under it, and with no history at all that
+   left a visible hole between the queue and the footer. */
 .empty {
-  padding: var(--s-8) 0;
+  padding: var(--s-2) 0 var(--s-4);
   color: var(--fg-muted);
   max-width: 62ch;
 }
@@ -1011,6 +1205,13 @@ td.num {
   td.num {
     text-align: left;
   }
+  /* Stacked, each ledger score is on its own line under its own label, so there is no
+     column to line up on and the reserved width is just dead space on the end. Scoped
+     to the ledger: the queue's records keep their fit on a shared right edge at every
+     width, so there the decimal alignment still has something to align. */
+  .ledger .fit-pad {
+    display: none;
+  }
   .ledger tr.pending > td:first-child {
     box-shadow: none;
   }
@@ -1026,6 +1227,21 @@ td.num {
   }
   .noterow {
     padding-top: 0;
+  }
+
+  /* Edge to edge, like the ledger rows. On a 360px phone the 24px of side padding was
+     7% of the measure spent on nothing, and the rule between two records is a better
+     separator than a gap. Pending records keep their inset from the unconditional
+     .rec.pending rule, which outranks this shorthand. */
+  .rec {
+    padding: var(--s-4) 0;
+  }
+  /* The foot wraps here: the documents and the note take one line, the signals and the
+     actions take the next. Pushed right they would sit under nothing, on the far side
+     of a record whose every other line starts at the margin. */
+  .rec .fb,
+  .rec .sigbar {
+    justify-content: flex-start;
   }
   .rates {
     gap: var(--s-6);
