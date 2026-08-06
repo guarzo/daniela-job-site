@@ -83,6 +83,17 @@
     node.className = 'msg' + (kind ? ' msg-' + kind : '');
   }
 
+  // Database and network errors are logged, never displayed. Postgres speaks in
+  // strings like "permission denied for table applications" — an internal table name
+  // shown to someone who is job hunting on her phone, and who can do nothing with it.
+  // The console keeps the real text for whoever is debugging; the screen gets a
+  // sentence that says what failed and what to do next.
+  function oops(node, sentence, err) {
+    var raw = err && err.message ? err.message : err;
+    if (window.console && console.error) console.error(sentence, raw);
+    say(node, sentence, 'err');
+  }
+
   function elem(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -104,7 +115,11 @@
       .then(function (res) {
         btn.disabled = false;
         if (res.error) {
-          say(el('auth-msg'), res.error.message, 'err');
+          // Fixed wording for the same reason the success message is fixed: a raw
+          // provider error could in principle read differently for an address that
+          // exists. It also covers the common case, which is rate limiting, and
+          // "wait a moment" is the right instruction for that.
+          oops(el('auth-msg'), 'Could not send the link. Wait a moment and try again.', res.error);
           return;
         }
         // Deliberately identical wording regardless of whether the address is on the
@@ -113,7 +128,7 @@
       })
       .catch(function (err) {
         btn.disabled = false;
-        say(el('auth-msg'), String(err && err.message ? err.message : err), 'err');
+        oops(el('auth-msg'), 'Could not reach the server. Check your connection and try again.', err);
       });
   });
 
@@ -153,7 +168,7 @@
         // Same reasoning as the transport catch below: stand the bands down rather
         // than presenting empty tables as an answer.
         bands(false);
-        say(el('app-msg'), 'Could not load applications: ' + appsRes.error.message, 'err');
+        oops(el('app-msg'), 'Could not load your applications. Reload to try again.', appsRes.error);
         return;
       }
       bands(true);
@@ -175,7 +190,7 @@
           'No applications are visible for this account. If you expected to see some, ask the account owner to add this email address.'
         );
       } else if (sigRes.error) {
-        say(el('app-msg'), 'Applications loaded, but feedback could not be read: ' + sigRes.error.message, 'err');
+        oops(el('app-msg'), 'Your applications loaded, but the feedback you have recorded could not be read.', sigRes.error);
       } else {
         say(el('app-msg'), '');
       }
@@ -196,10 +211,10 @@
       // now" would be a lie when the truth is that we never got to ask.
       show('view-app');
       bands(false);
-      say(
+      oops(
         el('app-msg'),
-        'Could not reach the server: ' + String(err && err.message ? err.message : err) + '. Check your connection and reload.',
-        'err'
+        'Could not reach the server. Check your connection and reload.',
+        err
       );
     });
   }
@@ -236,7 +251,7 @@
           b.disabled = false;
           b.textContent = was;
           if (res.error || !res.data) {
-            say(el('app-msg'), 'Could not open that file: ' + ((res.error && res.error.message) || 'unknown error'), 'err');
+            oops(el('app-msg'), 'Could not open that document. Try again in a moment.', res.error);
             return;
           }
           say(el('app-msg'), '');
@@ -245,7 +260,7 @@
         .catch(function (err) {
           b.disabled = false;
           b.textContent = was;
-          say(el('app-msg'), String(err && err.message ? err.message : err), 'err');
+          oops(el('app-msg'), 'Could not open that document. Check your connection and try again.', err);
         });
     });
     return b;
@@ -352,7 +367,7 @@
         btn.disabled = false;
         btn.textContent = was;
         if (res.error) {
-          say(el('app-msg'), 'Could not record that: ' + res.error.message, 'err');
+          oops(el('app-msg'), 'Could not record that. Nothing was saved, so try again.', res.error);
           return false;
         }
         var row = (res.data || [])[0];
@@ -378,7 +393,7 @@
       .catch(function (err) {
         btn.disabled = false;
         btn.textContent = was;
-        say(el('app-msg'), String(err && err.message ? err.message : err), 'err');
+        oops(el('app-msg'), 'Could not record that. Nothing was saved, so try again.', err);
         return false;
       });
   }
