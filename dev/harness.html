@@ -1,0 +1,149 @@
+<!doctype html>
+<!--
+  Local render harness. Loads the real styles.css and app.js against fixture data,
+  so the ledger can be looked at without a Supabase session.
+
+  This exists because the dashboard was once redesigned end to end and shipped
+  without anyone ever seeing the table with rows in it. Every browser check hit the
+  sign-in screen, because that is all an unauthenticated page will show you. Run
+  this before claiming a visual change is done.
+
+  It lives outside public/ and is therefore never uploaded to Cloudflare. It holds
+  no real data and no keys: the Supabase client is replaced wholesale, so nothing
+  here can reach a live project even by accident.
+
+    python3 -m http.server 8788      # from the repository root
+    open http://localhost:8788/dev/harness.html
+
+  Query string:
+    ?empty      zero applications (the off-allowlist / new-account state)
+    ?error      the applications query fails
+    ?offline    the transport rejects
+    ?auth       the signed-out view
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chigüire — render harness</title>
+    <link rel="stylesheet" href="../public/styles.css" />
+    <script src="fixtures.js"></script>
+    <script>
+      (function () {
+        'use strict';
+        var q = window.location.search;
+        var has = function (k) { return q.indexOf(k) !== -1; };
+
+        window.APP_CONFIG = {
+          SUPABASE_URL: 'https://harness.invalid',
+          SUPABASE_PUBLISHABLE_KEY: 'harness',
+          BUCKET: 'harness',
+        };
+
+        var apps = has('empty') ? [] : window.FIXTURES.applications.slice();
+        // The real query orders by fit descending, nulls last. Reproduced here so the
+        // queue band's "best fit first" claim is actually exercised by the harness.
+        apps.sort(function (a, b) {
+          if (a.fit_rating === null) return 1;
+          if (b.fit_rating === null) return -1;
+          return b.fit_rating - a.fit_rating;
+        });
+
+        var signals = window.FIXTURES.viewer_signals.slice();
+        var nextId = 100;
+
+        function result(table) {
+          if (has('offline')) return Promise.reject(new Error('Failed to fetch'));
+          if (has('error') && table === 'applications') {
+            return Promise.resolve({ data: null, error: { message: 'permission denied for table applications' } });
+          }
+          return Promise.resolve({
+            data: table === 'applications' ? apps : signals,
+            error: null,
+          });
+        }
+
+        // Chainable stub: select / order / insert all return the builder, and the
+        // builder is a thenable, so it works wherever the real client is awaited.
+        function builder(table) {
+          var pending = null;
+          var b = {
+            select: function () { return b; },
+            order: function () { return b; },
+            insert: function (row) {
+              pending = {
+                id: 's' + nextId++,
+                application_id: row.application_id,
+                kind: row.kind,
+                note: row.note || null,
+                created_at: new Date().toISOString(),
+                processed_at: null,
+              };
+              signals.push(pending);
+              return b;
+            },
+            then: function (ok, bad) {
+              var p = pending
+                ? Promise.resolve({ data: [pending], error: null })
+                : result(table);
+              return p.then(ok, bad);
+            },
+            catch: function (bad) { return b.then(null, bad); },
+          };
+          return b;
+        }
+
+        var session = { user: { email: 'harness@example.invalid' } };
+
+        window.supabase = {
+          createClient: function () {
+            return {
+              from: builder,
+              auth: {
+                getSession: function () {
+                  return Promise.resolve({ data: { session: has('auth') ? null : session } });
+                },
+                onAuthStateChange: function () {},
+                signInWithOtp: function () { return Promise.resolve({ error: null }); },
+                signOut: function () { return Promise.resolve({}); },
+              },
+              storage: {
+                from: function () {
+                  return {
+                    createSignedUrl: function () {
+                      return Promise.resolve({
+                        data: null,
+                        error: { message: 'harness: no storage bucket' },
+                      });
+                    },
+                  };
+                },
+              },
+            };
+          },
+        };
+      })();
+    </script>
+  </head>
+  <body>
+    <!--
+      index.html's body is injected at runtime rather than duplicated here, so the
+      harness cannot drift from the page it is meant to be testing.
+    -->
+    <script>
+      fetch('../public/index.html')
+        .then(function (r) { return r.text(); })
+        .then(function (html) {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          // Rewrite the one relative asset reference so it resolves from /dev/.
+          Array.prototype.forEach.call(doc.querySelectorAll('img[src]'), function (img) {
+            img.setAttribute('src', '../public/' + img.getAttribute('src'));
+          });
+          document.body.innerHTML = doc.body.innerHTML;
+          var s = document.createElement('script');
+          s.src = '../public/app.js';
+          document.body.appendChild(s);
+        });
+    </script>
+  </body>
+</html>
