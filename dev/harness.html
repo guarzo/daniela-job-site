@@ -17,6 +17,7 @@
 
   Query string:
     ?empty      zero applications (the off-allowlist / new-account state)
+    ?today      the everyday shape: all drafted, all noted, long roles, empty history
     ?error      the applications query fails
     ?offline    the transport rejects
     ?auth       the signed-out view
@@ -40,7 +41,9 @@
           BUCKET: 'harness',
         };
 
-        var apps = has('empty') ? [] : window.FIXTURES.applications.slice();
+        var apps = has('empty') ? []
+          : has('today') ? window.FIXTURES.today.slice()
+          : window.FIXTURES.applications.slice();
         // The real query orders by fit descending, nulls last. Reproduced here so the
         // queue band's "best fit first" claim is actually exercised by the harness.
         apps.sort(function (a, b) {

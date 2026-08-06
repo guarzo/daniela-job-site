@@ -88,10 +88,23 @@
   // shown to someone who is job hunting on her phone, and who can do nothing with it.
   // The console keeps the real text for whoever is debugging; the screen gets a
   // sentence that says what failed and what to do next.
-  function oops(node, sentence, err) {
+  //
+  // Pass `retry` when the failure is one the page can recover from without a reload.
+  // "Check your connection and reload" is a fair instruction on a laptop and a poor
+  // one on a phone, where reloading means finding the address bar again.
+  function oops(node, sentence, err, retry) {
     var raw = err && err.message ? err.message : err;
     if (window.console && console.error) console.error(sentence, raw);
     say(node, sentence, 'err');
+    if (!retry) return;
+    var b = elem('button', 'act msg-retry', 'Try again');
+    b.type = 'button';
+    b.addEventListener('click', function () {
+      b.disabled = true;
+      retry();
+    });
+    node.appendChild(document.createTextNode(' '));
+    node.appendChild(b);
   }
 
   function elem(tag, cls, text) {
@@ -168,7 +181,12 @@
         // Same reasoning as the transport catch below: stand the bands down rather
         // than presenting empty tables as an answer.
         bands(false);
-        oops(el('app-msg'), 'Could not load your applications. Reload to try again.', appsRes.error);
+        oops(
+          el('app-msg'),
+          'Could not load your applications.',
+          appsRes.error,
+          function () { load(session); }
+        );
         return;
       }
       bands(true);
@@ -190,7 +208,12 @@
           'No applications are visible for this account. If you expected to see some, ask the account owner to add this email address.'
         );
       } else if (sigRes.error) {
-        oops(el('app-msg'), 'Your applications loaded, but the feedback you have recorded could not be read.', sigRes.error);
+        oops(
+          el('app-msg'),
+          'Your applications loaded, but the feedback you have recorded could not be read.',
+          sigRes.error,
+          function () { load(session); }
+        );
       } else {
         say(el('app-msg'), '');
       }
@@ -213,8 +236,9 @@
       bands(false);
       oops(
         el('app-msg'),
-        'Could not reach the server. Check your connection and reload.',
-        err
+        'Could not reach the server. Check your connection.',
+        err,
+        function () { load(session); }
       );
     });
   }
@@ -266,9 +290,10 @@
     return b;
   }
 
-  function docsCell(r) {
-    var td = elem('td');
-    td.setAttribute('data-label', 'Documents');
+  // The documents themselves, without a cell around them. The queue renders records as
+  // list items and the history band renders them as table rows, so everything that
+  // builds content returns the content and the caller decides what wraps it.
+  function docsBox(r) {
     var box = elem('div', 'docs');
     // Filename stem comes from the RLS-gated row, never from a file served
     // publicly — nothing on the open internet should carry a personal name.
@@ -277,17 +302,36 @@
     if (r.cover_letter_object)
       box.appendChild(docButton('Cover letter', r.cover_letter_object, stem + ' - Cover Letter.pdf'));
     if (!r.cv_object && !r.cover_letter_object) box.appendChild(docButton('', null));
-    td.appendChild(box);
+    return box;
+  }
+
+  function docsCell(r) {
+    var td = elem('td');
+    td.setAttribute('data-label', 'Documents');
+    td.appendChild(docsBox(r));
     return td;
   }
 
   /* The upstream note used to be a `title` tooltip, which keyboard and touch users
-   * could not reach at all. It is a real disclosure now: a button in the role cell
-   * that reveals a full-width row underneath. Returns the extra <tr>, or null.
-   *
-   * Cell contents are wrapped in a single element because the narrow layout turns
+   * could not reach at all. It is a real disclosure now. The panel it reveals differs
+   * by band — a full-width <tr> in the table, a block inside the record in the queue —
+   * so the panel is passed in already built and this only wires the button to it. */
+  function noteToggle(id, panel) {
+    var btn = elem('button', 'disc', 'Note');
+    btn.type = 'button';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', id);
+    btn.addEventListener('click', function () {
+      var open = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', String(!open));
+      panel.hidden = open;
+    });
+    return btn;
+  }
+
+  /* Cell contents are wrapped in a single element because the narrow layout turns
    * each cell into a two-column label/value grid, and loose children would each
-   * become a grid item. */
+   * become a grid item. Returns the extra <tr>, or null. */
   function roleCell(r, colspan) {
     var td = elem('td');
     td.setAttribute('data-label', 'Role');
@@ -297,11 +341,6 @@
     if (!r.notes) return { td: td, extra: null };
 
     var id = 'note-' + r.id;
-    var btn = elem('button', 'disc', 'Note');
-    btn.type = 'button';
-    btn.setAttribute('aria-expanded', 'false');
-    btn.setAttribute('aria-controls', id);
-
     var extra = elem('tr', 'noterow');
     extra.hidden = true;
     var noteTd = elem('td');
@@ -310,13 +349,7 @@
     noteTd.appendChild(elem('p', null, r.notes));
     extra.appendChild(noteTd);
 
-    btn.addEventListener('click', function () {
-      var open = btn.getAttribute('aria-expanded') === 'true';
-      btn.setAttribute('aria-expanded', String(!open));
-      extra.hidden = open;
-    });
-
-    box.appendChild(btn);
+    box.appendChild(noteToggle(id, extra));
     return { td: td, extra: extra };
   }
 
@@ -381,10 +414,15 @@
           // the next reload — the interface contradicting itself on the primary path.
           // Repainting rather than re-rendering: a re-render would close a note form
           // left open on another row and drop focus from the button she just pressed.
-          var tr = ownerRow(chips);
-          if (tr) {
-            var after = tr.nextElementSibling;
-            paintPending(tr, after && after.className.indexOf('noterow') !== -1 ? after : null);
+          var owner = ownerRecord(chips);
+          if (owner) {
+            var after = owner.nextElementSibling;
+            paintPending(
+              owner,
+              after && after.nodeName === 'TR' && after.className.indexOf('noterow') !== -1
+                ? after
+                : null
+            );
           }
         }
         say(el('app-msg'), 'Recorded. It reaches the tracker the next time signals are picked up.', 'ok');
@@ -472,10 +510,8 @@
     return form;
   }
 
-  function feedbackCell(r, actions) {
-    var td = elem('td');
-    td.setAttribute('data-label', 'Feedback');
-    var box = elem('div');
+  function feedbackBox(r, actions) {
+    var box = elem('div', 'fb');
 
     var chips = elem('div', 'sigs');
     redrawChips(r.id, chips);
@@ -485,7 +521,10 @@
     var bar = elem('div', 'sigbar');
 
     if (actions.indexOf('sent') !== -1) {
-      var sent = elem('button', 'act', 'Mark sent');
+      // The one thing she came to the page to do, so it is the one control with a
+      // filled ground. The other two stay as text: three identical underlines gave a
+      // destructive action the same weight as the primary one.
+      var sent = elem('button', 'act act-primary', 'Mark sent');
       sent.type = 'button';
       sent.addEventListener('click', function () { recordSignal(r.id, 'sent', null, chips, sent); });
       bar.appendChild(sent);
@@ -502,7 +541,13 @@
 
     box.appendChild(bar);
     box.appendChild(form.root);
-    td.appendChild(box);
+    return box;
+  }
+
+  function feedbackCell(r, actions) {
+    var td = elem('td');
+    td.setAttribute('data-label', 'Feedback');
+    td.appendChild(feedbackBox(r, actions));
     return td;
   }
 
@@ -513,10 +558,47 @@
     return (signalsByApp[r.id] || []).some(function (s) { return !s.processed_at; });
   }
 
+  // Fit is right-aligned tabular mono, so the decimal point is what the eye lines up
+  // on — and Number#toString drops trailing zeros, so 81 sat a full digit to the right
+  // of 88.4 and the column read ragged. Rather than render 81.0 and put a decimal on
+  // every whole score, whole numbers get an empty span whose CSS ::after reserves the
+  // width of ".0" without painting it. Generated content is not selected or copied, and
+  // aria-hidden keeps it out of the accessibility tree, so the cell still says "81".
+  function fillFit(node, r) {
+    // Appended, never assigned: fitTag has already put an "Fit" label into the node for
+    // screen readers, and setting textContent here would delete it and leave a record
+    // with no score reading as a bare dash.
+    if (r.fit_rating == null) {
+      node.appendChild(document.createTextNode('—'));
+      return node;
+    }
+    var text = String(r.fit_rating);
+    node.appendChild(document.createTextNode(text));
+    if (text.indexOf('.') === -1) {
+      var pad = elem('span', 'fit-pad');
+      pad.setAttribute('aria-hidden', 'true');
+      node.appendChild(pad);
+    }
+    return node;
+  }
+
   function fitCell(r) {
-    var td = elem('td', 'num', r.fit_rating == null ? '—' : String(r.fit_rating));
+    var td = elem('td', 'num');
     td.setAttribute('data-label', 'Fit');
-    return td;
+    return fillFit(td, r);
+  }
+
+  /* In the queue, fit is the reason a record is where it is — the band claims "best fit
+   * first" and this is the evidence. So it is the one place fit carries ink rather than
+   * being a grey number, and it is why the everyday screen is no longer entirely
+   * colourless. It stays neutral in the history band, where fit is a footnote and the
+   * status column owns the colour. */
+  function fitTag(r) {
+    var p = elem('p', 'rec-fit');
+    if (r.fit_rating == null) p.className = 'rec-fit rec-fit-none';
+    var label = elem('span', 'sr-only', 'Fit ');
+    p.appendChild(label);
+    return fillFit(p, r);
   }
 
   function companyCell(r) {
@@ -527,20 +609,22 @@
 
   // The pending ground, applied to a whole record. Shared by first render and by the
   // post-signal repaint so the two cannot drift: they were separate before, and the
-  // repaint was simply missing. The disclosure row is a continuation of the same
-  // record, so it carries the pending edge too — without it the left rule stops
-  // mid-record. Both row kinds are built classless, so assigning className wholesale
-  // is safe here.
-  function paintPending(tr, extra) {
-    tr.className = 'pending';
+  // repaint was simply missing. In the history table the disclosure row is a
+  // continuation of the same record, so it carries the pending edge too — without it
+  // the left rule stops mid-record. In the queue the record is one element and there is
+  // nothing to continue. Both row kinds are built classless apart from their own base
+  // class, so the wholesale className assignment is safe here.
+  function paintPending(node, extra) {
+    node.className = node.nodeName === 'LI' ? 'rec pending' : 'pending';
     if (extra) extra.className = 'noterow pending';
   }
 
-  // Walks up to the <tr> that owns a node. Used to find the row a chip belongs to
-  // without threading the row through feedbackCell and noteForm purely to reach it.
-  function ownerRow(node) {
+  // Walks up to the element that owns a node: a <tr> in the history table, an <li> in
+  // the queue. Used to find the record a chip belongs to without threading it through
+  // feedbackBox and noteForm purely to reach it.
+  function ownerRecord(node) {
     var n = node;
-    while (n && n.nodeName !== 'TR') n = n.parentNode;
+    while (n && n.nodeName !== 'TR' && n.nodeName !== 'LI') n = n.parentNode;
     return n;
   }
 
@@ -552,24 +636,55 @@
 
   /* ---------- band 1: ready to send ---------- */
 
-  function renderQueue() {
-    var body = el('queue-body');
-    body.textContent = '';
-    // Best fit first: this band answers "what should go out next".
-    var list = rows.filter(function (r) { return r.status === 'drafted'; });
-    el('queue-count').textContent = list.length ? list.length + ' waiting' : '';
-    el('queue-empty').hidden = list.length !== 0;
-    el('queue').hidden = list.length === 0;
+  /* One drafted package as a single block: who and how well it fits on the first line,
+   * the role on the second, what there is to read on the third, what to do about it on
+   * the fourth. Reading order is the order she works in. */
+  function queueRecord(r) {
+    var li = elem('li', 'rec');
 
-    list.forEach(function (r) {
-      var tr = elem('tr');
-      var role = roleCell(r, 5);
-      tr.appendChild(companyCell(r));
-      tr.appendChild(role.td);
-      tr.appendChild(fitCell(r));
-      tr.appendChild(docsCell(r));
-      tr.appendChild(feedbackCell(r, ['sent', 'hold']));
-      appendRow(body, tr, role, r);
+    var head = elem('div', 'rec-head');
+    head.appendChild(elem('p', 'rec-co', r.company || ''));
+    head.appendChild(fitTag(r));
+    li.appendChild(head);
+
+    li.appendChild(elem('p', 'rec-role', r.role || ''));
+
+    // Documents and the note sit on one line: both are "things to read before
+    // deciding", and separating them was what put Note on a line of its own. The
+    // actions sit on that same line, pushed right — reading left to right is now
+    // "what there is to read, then what to do about it".
+    var foot = elem('div', 'rec-foot');
+    var meta = elem('div', 'rec-meta');
+    meta.appendChild(docsBox(r));
+    var panel = null;
+    if (r.notes) {
+      var id = 'note-' + r.id;
+      panel = elem('div', 'rec-note');
+      panel.id = id;
+      panel.hidden = true;
+      panel.appendChild(elem('p', null, r.notes));
+      meta.appendChild(noteToggle(id, panel));
+    }
+    foot.appendChild(meta);
+    foot.appendChild(feedbackBox(r, ['sent', 'hold']));
+    li.appendChild(foot);
+    if (panel) li.appendChild(panel);
+
+    if (isPending(r)) paintPending(li, null);
+    return li;
+  }
+
+  function renderQueue() {
+    var list = el('queue-list');
+    list.textContent = '';
+    // Best fit first: this band answers "what should go out next".
+    var drafted = rows.filter(function (r) { return r.status === 'drafted'; });
+    el('queue-count').textContent = drafted.length ? drafted.length + ' waiting' : '';
+    el('queue-empty').hidden = drafted.length !== 0;
+    list.hidden = drafted.length === 0;
+
+    drafted.forEach(function (r) {
+      list.appendChild(queueRecord(r));
     });
   }
 
@@ -650,6 +765,10 @@
     // Nothing sent yet means nothing to search or filter. The controls stay for a
     // search that merely returns no matches — she needs them to get back.
     el('history-tools').hidden = all.length === 0;
+    // "Everything sent, most recent first" describes a table. With nothing sent there
+    // is no table, and the sentence sat above "Nothing has gone out yet" saying the
+    // same thing twice with a gap between them.
+    el('history-note').hidden = all.length === 0;
     empty.textContent = all.length === 0
       ? 'Nothing has gone out yet.'
       : 'No sent applications match this search.';
