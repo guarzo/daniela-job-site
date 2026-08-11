@@ -676,6 +676,45 @@ textarea {
   white-space: pre-wrap;
 }
 
+/* Shortlist records only. The verdict/portal line under the role: secondary to
+   both the company and the posting title, so it takes muted ink and no weight. */
+.rec-sub {
+  margin: var(--s-2) 0 0;
+  font-size: 0.875rem;
+  color: var(--fg-muted);
+}
+
+/* Strengths and gaps inside the "Why" panel. Two lists stacked, each under its own
+   label, rather than side by side: on a phone the columns would be 20ch wide and
+   every bullet would wrap to four lines. */
+.rec-why + .rec-why {
+  margin-top: var(--s-3);
+}
+.rec-why ul {
+  margin: var(--s-2) 0 0;
+  padding-left: 1.1em;
+}
+.rec-why li {
+  margin: 0 0 var(--s-2);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+.rec-why li:last-child {
+  margin-bottom: 0;
+}
+
+/* The posting title is the link on a shortlist record. Underlined only on hover:
+   twenty underlined titles in a column read as a wall of blue-book text, and the
+   record already signals that the title is the thing to click. */
+a.rec-role {
+  color: inherit;
+  text-decoration: none;
+}
+a.rec-role:hover,
+a.rec-role:focus-visible {
+  text-decoration: underline;
+}
+
 /* Pending is marked by the inset edge and by the chip, which says "awaiting sync" in
    words. Not by the sunk ground: the ledger's rows are 40px and take that fill as a
    band, but a record is 130px and takes it as a slab — on the stress fixtures two

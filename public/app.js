@@ -59,8 +59,10 @@
 
   var el = function (id) { return document.getElementById(id); };
   var rows = [];
+  var shortlist = [];
   var signalsByApp = {};
   var filter = { q: '', status: 'all' };
+  var shortlistQ = '';
   var NOTE_MAX = 2000; // mirrors the char_length check on public.viewer_signals
 
   function show(view) {
@@ -69,11 +71,11 @@
     });
   }
 
-  // All three bands at once. Used to stand the dashboard down when a load fails:
+  // All four bands at once. Used to stand the dashboard down when a load fails:
   // an empty table under a live heading reads as "you have nothing", which is a
   // different claim from "we could not find out".
   function bands(on) {
-    ['queue-band', 'history-band', 'rates-band'].forEach(function (b) {
+    ['shortlist-band', 'queue-band', 'history-band', 'rates-band'].forEach(function (b) {
       el(b).hidden = !on;
     });
   }
@@ -173,9 +175,16 @@
         .from('viewer_signals')
         .select('id,application_id,kind,note,created_at,processed_at')
         .order('created_at', { ascending: true }),
+      // Ranked postings. Ordered server-side so the band's "best score first"
+      // claim survives a client that never re-sorts.
+      sb
+        .from('shortlist')
+        .select('id,url,company,role,portal,rank_score,rank_verdict,rank_date,strengths,gaps')
+        .order('rank_score', { ascending: false, nullsFirst: false }),
     ]).then(function (both) {
       var appsRes = both[0];
       var sigRes = both[1];
+      var shortRes = both[2];
       show('view-app');
       if (appsRes.error) {
         // Same reasoning as the transport catch below: stand the bands down rather
@@ -191,12 +200,18 @@
       }
       bands(true);
       rows = appsRes.data || [];
+      // A shortlist failure degrades to an empty band rather than taking the
+      // dashboard down: the drafted packages are still worth showing without it.
+      shortlist = shortRes.error ? [] : shortRes.data || [];
+      if (shortRes.error && window.console && console.error) {
+        console.error('Could not load the shortlist.', shortRes.error.message || shortRes.error);
+      }
 
       // A failure to read feedback must not blank the dashboard — the documents are
       // the point, and they work without it. Degrade to an empty index and say so.
       indexSignals(sigRes.error ? [] : sigRes.data || []);
 
-      if (rows.length === 0) {
+      if (rows.length === 0 && shortlist.length === 0) {
         // Deliberately impersonal: this string ships in a publicly served file, so
         // it must not name anyone. It is also the response an off-allowlist visitor
         // sees — RLS returns zero rows rather than an error, and that is correct.
@@ -217,6 +232,7 @@
       } else {
         say(el('app-msg'), '');
       }
+      renderShortlist();
       renderQueue();
       renderFilters();
       renderHistory();
@@ -316,8 +332,8 @@
    * could not reach at all. It is a real disclosure now. The panel it reveals differs
    * by band — a full-width <tr> in the table, a block inside the record in the queue —
    * so the panel is passed in already built and this only wires the button to it. */
-  function noteToggle(id, panel) {
-    var btn = elem('button', 'disc', 'Note');
+  function noteToggle(id, panel, label) {
+    var btn = elem('button', 'disc', label || 'Note');
     btn.type = 'button';
     btn.setAttribute('aria-expanded', 'false');
     btn.setAttribute('aria-controls', id);
@@ -673,6 +689,116 @@
     if (isPending(r)) paintPending(li, null);
     return li;
   }
+
+  /* ---------- band 0: worth a look ---------- */
+
+  // Only http(s) postings become links. The URL reaches the browser from the
+  // scraper by way of the database, so a javascript: or data: href would be a
+  // script-execution hole opened by whatever a crawler happened to read. Anything
+  // that is not plainly http(s) renders as inert text instead.
+  function postingLink(r) {
+    var safe = /^https?:\/\//i.test(r.url || '');
+    var node = elem(safe ? 'a' : 'p', 'rec-role', r.role || '');
+    if (safe) {
+      node.href = r.url;
+      node.target = '_blank';
+      node.rel = 'noopener noreferrer';
+    }
+    return node;
+  }
+
+  // Same ink as the queue's fit tag, for the same reason: the band claims "best
+  // score first" and this is the evidence for the ordering.
+  function scoreTag(r) {
+    var p = elem('p', 'rec-fit' + (r.rank_score == null ? ' rec-fit-none' : ''));
+    p.appendChild(elem('span', 'sr-only', 'Score '));
+    p.appendChild(document.createTextNode(r.rank_score == null ? '—' : String(r.rank_score)));
+    return p;
+  }
+
+  // The bullets are written by the ranking agents as plain text. They are appended
+  // as text nodes, never as markup — elem() sets textContent.
+  function bulletList(title, items) {
+    var box = elem('div', 'rec-why');
+    box.appendChild(elem('p', 't-label', title));
+    var ul = elem('ul');
+    items.forEach(function (t) { ul.appendChild(elem('li', null, t)); });
+    box.appendChild(ul);
+    return box;
+  }
+
+  function shortlistRecord(r) {
+    var li = elem('li', 'rec');
+
+    var head = elem('div', 'rec-head');
+    head.appendChild(elem('p', 'rec-co', r.company || ''));
+    head.appendChild(scoreTag(r));
+    li.appendChild(head);
+
+    li.appendChild(postingLink(r));
+
+    // `fit` is deliberately not shown. It is a scrape-time guess, written before
+    // anything scored the posting, so it contradicts the rank verdict often enough
+    // to be noise — records read "strong fit" at 89 while carrying fit "low".
+    // The verdict and the score are the ranked signal; showing both is enough.
+    var meta = [];
+    if (r.rank_verdict) meta.push(r.rank_verdict);
+    if (r.portal) meta.push(r.portal);
+    if (meta.length) li.appendChild(elem('p', 'rec-sub', meta.join(' · ')));
+
+    var strengths = r.strengths || [];
+    var gaps = r.gaps || [];
+    if (strengths.length || gaps.length) {
+      var panel = elem('div', 'rec-note');
+      panel.id = 'why-' + r.id;
+      panel.hidden = true;
+      if (strengths.length) panel.appendChild(bulletList('Strengths', strengths));
+      if (gaps.length) panel.appendChild(bulletList('Gaps', gaps));
+
+      var foot = elem('div', 'rec-foot');
+      var box = elem('div', 'rec-meta');
+      box.appendChild(noteToggle(panel.id, panel, 'Why'));
+      foot.appendChild(box);
+      li.appendChild(foot);
+      li.appendChild(panel);
+    }
+
+    return li;
+  }
+
+  function matchesShortlist(r) {
+    if (!shortlistQ) return true;
+    return ((r.company || '') + ' ' + (r.role || '')).toLowerCase().indexOf(shortlistQ) !== -1;
+  }
+
+  function renderShortlist() {
+    var list = el('shortlist-list');
+    list.textContent = '';
+    var visible = shortlist.filter(matchesShortlist);
+
+    // The count reports the whole shortlist, not the filtered view — it answers
+    // "how big is the pile", which a search box should not change.
+    el('shortlist-count').textContent = shortlist.length ? shortlist.length + ' ranked' : '';
+    el('shortlist-tools').hidden = shortlist.length === 0;
+    el('shortlist-empty').hidden = visible.length !== 0;
+    list.hidden = visible.length === 0;
+
+    if (shortlist.length && !visible.length) {
+      el('shortlist-empty').textContent = 'No ranked postings match that search.';
+    } else {
+      el('shortlist-empty').textContent =
+        'Nothing ranked yet. Postings show up here once they have been scored.';
+    }
+
+    visible.forEach(function (r) {
+      list.appendChild(shortlistRecord(r));
+    });
+  }
+
+  el('sq').addEventListener('input', function (e) {
+    shortlistQ = e.target.value.trim().toLowerCase();
+    renderShortlist();
+  });
 
   function renderQueue() {
     var list = el('queue-list');

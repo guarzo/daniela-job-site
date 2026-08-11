@@ -105,6 +105,28 @@
       </header>
 
       <main id="main" class="wrap">
+        <!-- Band 0: what the search has turned up. Scored but not written up — no
+             documents exist yet, so there is nothing to open and nothing to send.
+             It leads because on most days it is the only band with anything in it. -->
+        <section class="band" id="shortlist-band" aria-labelledby="shortlist-h">
+          <div class="band-head">
+            <h2 id="shortlist-h">Worth a look</h2>
+            <span id="shortlist-count" class="band-count"></span>
+          </div>
+          <p class="band-note">
+            Ranked postings, best score first. Open the posting to read it; nothing has
+            been drafted for these yet.
+          </p>
+          <div class="band-tools" id="shortlist-tools">
+            <label class="sr-only" for="sq">Search company or role</label>
+            <input id="sq" type="search" placeholder="Search company or role…" />
+          </div>
+          <ol class="queue-list" id="shortlist-list"></ol>
+          <p id="shortlist-empty" class="empty" hidden>
+            Nothing ranked yet. Postings show up here once they have been scored.
+          </p>
+        </section>
+
         <!-- Band 1: what is waiting on her. -->
         <section class="band" id="queue-band" aria-labelledby="queue-h">
           <div class="band-head">
