@@ -718,14 +718,17 @@
 
   // /rank's veto gates, rendered only when they are not PASS.
   //
-  // Whether these matter at all depends on the candidate. Where location is a hard
-  // filter, a FAIL is excluded upstream and never reaches this table, so the band
-  // stays clean. Where relocation is acceptable, FLAG is the *common* verdict and
-  // a score shown without it reads as unconditional — which is exactly the case
-  // this exists for.
+  // Whether these matter at all depends on the candidate. Where relocation is
+  // acceptable, FLAG is the *common* verdict and a score shown without it reads
+  // as unconditional — which is the case this exists for. Where location is a
+  // hard filter, FLAG means travel rather than a move, and is rarer.
   //
-  // FAIL is rendered rather than assumed unreachable. A view that silently drops a
-  // verdict it did not expect is how the flag went missing in the first place.
+  // FAIL is rendered rather than assumed unreachable, and that is not defensive
+  // padding: /rank drops a FAIL from the shortlist it *presents*, but still
+  // writes the entry back as status: ranked, and the sync keys on status. FAILs
+  // reach this table. A view that silently dropped the verdict it did not expect
+  // would show one as an ordinary opportunity — which is how the flag went
+  // missing in the first place.
   //
   // Text nodes throughout: language_note is agent prose derived from third-party
   // posting text, the same untrusted class as strengths and gaps.
