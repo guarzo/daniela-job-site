@@ -684,6 +684,16 @@ textarea {
   color: var(--fg-muted);
 }
 
+/* The veto caveat, when /rank flagged one. Same size as .rec-sub but not muted:
+   it is the one line on the record that can change the answer, so it does not
+   recede into the metadata. Deliberately no warning-red — most caveats here are
+   "this role is in Seattle", which is a fact to weigh, not an error. */
+.rec-caveat {
+  margin: var(--s-1) 0 0;
+  font-size: 0.875rem;
+  color: var(--fg);
+}
+
 /* Strengths and gaps inside the "Why" panel. Two lists stacked, each under its own
    label, rather than side by side: on a phone the columns would be 20ch wide and
    every bullet would wrap to four lines. */

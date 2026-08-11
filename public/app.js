@@ -179,7 +179,7 @@
       // claim survives a client that never re-sorts.
       sb
         .from('shortlist')
-        .select('id,url,company,role,portal,rank_score,rank_verdict,rank_date,strengths,gaps')
+        .select('id,url,company,role,portal,rank_score,rank_verdict,rank_date,location,location_detail,language_gate,language_note,strengths,gaps')
         .order('rank_score', { ascending: false, nullsFirst: false }),
     ]).then(function (both) {
       var appsRes = both[0];
@@ -716,6 +716,41 @@
     return p;
   }
 
+  // /rank's veto gates, rendered only when they are not PASS.
+  //
+  // Whether these matter at all depends on the candidate. Where relocation is
+  // acceptable, FLAG is the *common* verdict and a score shown without it reads
+  // as unconditional — which is the case this exists for. Where location is a
+  // hard filter, FLAG means travel rather than a move, and is rarer.
+  //
+  // FAIL is rendered rather than assumed unreachable, and that is not defensive
+  // padding: /rank drops a FAIL from the shortlist it *presents*, but still
+  // writes the entry back as status: ranked, and the sync keys on status. FAILs
+  // reach this table. A view that silently dropped the verdict it did not expect
+  // would show one as an ordinary opportunity — which is how the flag went
+  // missing in the first place.
+  //
+  // Text nodes throughout: language_note is agent prose derived from third-party
+  // posting text, the same untrusted class as strengths and gaps.
+  function caveats(r) {
+    var out = [];
+    if (r.location && r.location !== 'PASS') {
+      // The gate answers "is there a catch"; only the city answers "is it a catch
+      // I care about", which is the question a relocation premium turns on.
+      var where = r.location_detail || (r.location === 'FAIL' ? 'ruled out' : 'relocation or travel');
+      out.push(r.location === 'FAIL' ? 'Location ruled out — ' + where : where);
+    }
+    if (r.language_gate && r.language_gate !== 'PASS') {
+      out.push('Language — ' + (r.language_note || 'requirement above declared level'));
+    }
+    if (!out.length) return null;
+
+    var p = elem('p', 'rec-caveat');
+    p.appendChild(elem('span', 'sr-only', 'Caveat: '));
+    p.appendChild(document.createTextNode('⚠ ' + out.join(' · ')));
+    return p;
+  }
+
   // The bullets are written by the ranking agents as plain text. They are appended
   // as text nodes, never as markup — elem() sets textContent.
   function bulletList(title, items) {
@@ -745,6 +780,9 @@
     if (r.rank_verdict) meta.push(r.rank_verdict);
     if (r.portal) meta.push(r.portal);
     if (meta.length) li.appendChild(elem('p', 'rec-sub', meta.join(' · ')));
+
+    var caveat = caveats(r);
+    if (caveat) li.appendChild(caveat);
 
     var strengths = r.strengths || [];
     var gaps = r.gaps || [];
